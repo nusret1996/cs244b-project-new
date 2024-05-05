@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+// Streamlet service interface
+service Streamlet {
+    // Used by nodes to notify other nodes of their vote
+    rpc NotifyVote(Vote) returns (Response) {}
+
+    // Used by epoch leader to propse. Mostly the same as above
+    // but explicit code path to verify the leader and epoch and
+    // to facilitate implementing and testing different
+    // interpretations of the protocol description
+    rpc ProposeBlock(Vote) returns (Response) {}
+}
+
+// Response type can be used to respond with information.
+// Empty for now because no response is needed in the
+// protocol as described in the paper.
+message Response {
+
+}
+
+message Block {
+    // SHA-256 of parent block
+    bytes phash = 1;
+
+    // Epoch number
+    uint64 epoch = 2;
+
+    // Block data as binary values, opaque to Streamlet service,
+    // and to be interpreted by application
+    bytes txns = 3;
+}
+
+message Vote {
+    // Node name, which is "address:port" to ease configuration and setup
+    uint32 node = 1;
+
+    // P-256/secp256r1 signature on propsed block
+    bytes signature = 2;
+
+    // Block being voted on and to be verified by node
+    Block block = 3;
+}
