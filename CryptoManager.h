@@ -28,29 +28,30 @@ public:
     ~CryptoManager();
 
     /*
-     * Protobuf uses strings for the byte type, so this allows
-     * the field to be passed directly so that storage space
-     * can be checked and accessed directly
+     * Protobuf uses strings for the bytes type, so the hash output
+     * is a string allowing the protobuf field to be passed directly
+     * and the field's storage space to be adjusted if needed.
      */
-    void sha256_of(const void *data, uint64_t bytes, std::string &out);
+    void sha256_of(const void *data, uint64_t bytes, std::string &hash);
 
     /*
      * Computes the P-256 signature and places. Same reason as in
      * sha256_of for use of strings.
      */
-    void sign_sha256(const std::string &digest, std::string &out);
+    void sign_sha256(const std::string &digest, std::string &sig);
 
     /*
      * Computes the P-256 signature and places. Same reason as in
-     * sha256_of for use of strings.
+     * sha256_of for use of strings. In this case, the string field
+     * also needs to be checked to ensure it is a valid size.
      */
-    bool verify_signature(const std::string &digest, const std::string &signature);
+    bool verify_signature(uint32_t node, const std::string &digest, const std::string &sig);
     
     /*
      * Used to compute the leader.
      *
      * Computes an MD5 hash of the epoch represented as a big endian integer
-     * and returns the value of the first 8 bytes interpreted as a big endian
+     * and returns the value of the first 4 bytes interpreted as a big endian
      * integer mod the number of peers and returns that as the node ID.
      */
     uint32_t hash_epoch(uint64_t epoch);
@@ -63,7 +64,10 @@ private:
     // EVP_PKEY_CTX per thread, or per request
     // EVP_MD_CTX per thread, or per request
 
-    uint32_t num_peers; // For trivial implementation
+    // Value used for trivial development implementation
+    Key pub_key;
+    Key priv_key;
+    std::vector<Key> peer_key;
 
     // EVP_PKEY *pub_key;
     // EVP_PKEY *priv_key;

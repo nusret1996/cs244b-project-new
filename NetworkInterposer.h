@@ -9,7 +9,7 @@
 
 /*
  * Abstracts away broadcasting and allows a NetworkInterposer
- * gRPC service to be inserted into the system to simulate varoius,
+ * gRPC service to be inserted into the system to simulate various,
  * including adversarial, network conditions.
  */
 class NetworkInterposer {

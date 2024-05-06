@@ -37,7 +37,10 @@ struct Peer {
  * and once notarized, to add the block to the blockchain.
  */
 struct ChainElement {
-    ChainElement *parent;
+    // Epoch of parent block
+    const uint64_t parent;
+
+    // Index of this block in its chain
     uint64_t index;
 
     // std::vector<bool> is specialized on major platforms

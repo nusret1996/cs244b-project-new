@@ -55,7 +55,7 @@ void NetworkInterposer::broadcast(const Vote& vote, grpc::CompletionQueue* cq) {
         // stub[i]->AsyncNotifyVote(&req->context, vote, cq);
 
         // get a bunch of these back
-        // std::unique_ptr< ::grpc::ClientAsyncResponseReader<Response>> rpc
+        // std::unique_ptr<grpc::ClientAsyncResponseReader<Response>> rpc
 
         // call finish to associated with tag
         // rpc->Finish(&req->resp, &req->status, &req);
