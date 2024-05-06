@@ -20,19 +20,22 @@ message Response {
 }
 
 message Block {
+    // Epoch number of parent block
+    uint64 parent = 1;
+
     // SHA-256 of parent block
-    bytes phash = 1;
+    bytes phash = 2;
 
     // Epoch number
-    uint64 epoch = 2;
+    uint64 epoch = 3;
 
     // Block data as binary values, opaque to Streamlet service,
     // and to be interpreted by application
-    bytes txns = 3;
+    bytes txns = 4;
 }
 
 message Vote {
-    // Node name, which is "address:port" to ease configuration and setup
+    // Node ID corresponding to some "address:port" in the configuration file
     uint32 node = 1;
 
     // P-256/secp256r1 signature on propsed block

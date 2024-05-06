@@ -5,8 +5,9 @@
 class ReplicatedStateMachine {
 public:
     virtual ~ReplicatedStateMachine() = 0;
-    virtual void TransactionsFinalized(/* Representation of transactions */) = 0;
+    virtual void TransactionsFinalized(/* Binary transaction blob */) = 0;
     virtual void TransactionsNotarized(/* Blocks */) = 0;
+    virtual bool ValidateTransaction(/* Binary transaction blob */);
 };
 
 // 256 bit key for P-256/secp256r1

@@ -31,9 +31,12 @@ public:
     using std::chrono::system_clock;
 
     /*
-     * Construct a streamlet node
+     * Params
      *   id: Index in peers that is the ID of this node
      *   peers: List of peers in the including the local node
+     *   priv: Private key of local node
+     *   pub: Public key of local node
+     *   epoch_len: Duration of the epoch in milliseconds
      */
     StreamletNodeV2(
         uint32_t id,
@@ -57,7 +60,26 @@ public:
         Response* response
     ) override;
 
-    void Run();
+    /*
+     * Processes finished RPCs and epoch advancement, intended to take over the main
+     * thread. Finished RPCs only need to be cleaned up since, for now, the server side
+     * of the Streamlet service is not expected to return any information. A deadline
+     * is set at the start of the next epoch wait on the completion queue so
+     * that it does not miss the start of an epoch if the queue is empty. Regardless,
+     * advancement of the epoch is always checked first whenever anything is dequeued.
+     *
+     * Params
+     *   epoch_sync: Start of the initial epoch in local time. Must be the same, relative
+     *               to the local time zone, as the epoch synchronization point of other
+     *               nodes in the system.
+     */
+    void Run(system_clock::time_point epoch_sync);
+
+    /*
+     * Queues transactions, which are a binary, to be placed into a block and proposed
+     * at some future time when this node becomes leader.
+     */
+    void QueueTransactions();
 
 private:
     NetworkInterposer network;
@@ -69,6 +91,9 @@ private:
 
     // Genesis block
     const ChainElement genesis_block;
+
+    // Address of this server
+    const std::string local_addr;
 
     // The ID of this node
     const uint32_t local_id;
@@ -89,6 +114,7 @@ StreamletNodeV2::StreamletNodeV2(
     : network{peers},
     crypto{peers, priv, pub},
     genesis{0, 0, std::vector<bool>{}, Block{}},
+    local_addr{peers[local_id].addr},
     local_id{id},
     epoch_duration{std::chrono::duration_cast<system_clock::duration>(epoch_len)},
     epoch{0} {
@@ -117,7 +143,7 @@ grpc::Status StreamletNodeV2::ProposeBlock(
 
 void StreamletNodeV2::Run(system_clock::time_point epoch_sync) {
     // Build server and run
-    std::string server_address{ "0.0.0.0:50051" };
+    std::string server_address{ local_addr };
 
     ServerBuilder builder;
     builder.AddListeningPort(server_address, grpc::InsecureServerCredentials());
@@ -125,46 +151,33 @@ void StreamletNodeV2::Run(system_clock::time_point epoch_sync) {
 
     std::unique_ptr<Server> server(builder.BuildAndStart());
 
-    // Process finished RPCs and alarms on the main thread.
-    // Finished RPCs only need to be cleaned up since the RPC
-    // service is not expected to return any information
-    // in the current implementation. Alarms ensure that the
-    // thread unblocks from the wait on the completion queue so
-    // that it does not miss the start of an epoch if there are
-    // no messages occurring from remote peers
-
-    Alarm alarm;
-    alarm.set(req_queue, epoch_sync, &alarm);
-
+    // Poll for completed async requests and monitor epoch progress
+    grpc::CompletionQueue::NextStatus status;
     void *tag;
     bool ok;
-    while (req_queue.Next(&tag, &ok)) {
+    status = req_queue.AsyncNext(&tag, &ok, epoch_sync)
+    while (status != grpc::CompletionQueue::NextStatus::SHUTDOWN) {
         // Always check if the epoch advanced
         system_clock::time_point t_now = system_clock::now();
         if ((t_now - epoch_sync) >= epoch_duration) {
             epoch_sync += epoch_duration;
             epoch++;
 
-            alarm.set(req_queue, epoch_sync, &alarm);
-
             // if (crypto.hash_epoch(epoch) == local_id)
             //     run leader logic
-        } else if (tag == &alarm) {
-            // If for some reason the alarm expired a tad before the
-            // next epoch, reschedule to ensure that the call unblocks
-            // and the epoch will be updated in a timely manner
-            alarm.set(req_queue, epoch_sync + epoch_duration, &alarm);
         }
 
-        // Nothing to process if the dequeued tag points to the alarm.
-        // Otherwise, tag is a completed async request that must be cleaned up.
-        if (tag != &alarm) {
+        // Nothing to process if the status is TIMEOUT. Otherwise, tag
+        // is a completed async request that must be cleaned up.
+        if (status == grpc::CompletionQueue::NextStatus::GOT_EVENT) {
             NetworkInterposer::Pending *req = static_cast<NetworkInterposer::Pending*>(tag);
 
             // optionally check status and response (currently an empty struct)
 
             // cleanup code here
         }
+
+        status = req_queue.AsyncNext(&tag, &ok, epoch_sync);
     }
 
     server->Shutdown();
