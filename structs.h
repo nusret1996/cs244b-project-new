@@ -38,18 +38,37 @@ struct Peer {
  * and once notarized, to add the block to the blockchain.
  */
 struct ChainElement {
-    // Epoch of parent block
-    const uint64_t parent;
+    // Structure synchronization
+    std::mutex m;
+
+    // Flag to coordinate structure deletion with ref_count
+    bool removed;
+
+    // Reference count to coordinate structure deletion.
+    // Expect fewer than 256 threads.
+    std::atomic_uint8_t ref_count;
+
+    // Since votes from other nodes can arrive before the leader proposal
+    // in an epoch, this records the hash that each node voted on. Later,
+    // once the leader's proposal is seen and verified, only the votes
+    // with a matching hash are recorded in voters below, and this structure
+    // is cleared.
+    std::unordered_map<uint32_t, std::string> vote_hashes;
+
+    // std::vector<bool> is specialized on major platforms to be
+    // a compact bitvector. std::bitset cannot be used since we do
+    // not know the system configuration ahead of time (bitset size
+    // is a template parameter).
+    std::vector<bool> voters;
+
+    // The block hash
+    std::string hash;
+
+    // The block
+    Block block;
 
     // Index of this block in its chain
     uint64_t index;
 
-    // std::vector<bool> is specialized on major platforms
-    // to be a compact bitvector. std::bitset cannot be used
-    // since we do not know the system configuration ahead
-    // of time (bitset size is a template parameter).
-    std::vector<bool> votes;
-
-    // The block triple
-    Block block;
+    ChainElement() : removed{false}, ref_count{0}, votes{0}, hash{}, block{}, index{0} { }
 }

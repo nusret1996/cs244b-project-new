@@ -41,6 +41,23 @@ message Vote {
     // P-256/secp256r1 signature on propsed block
     bytes signature = 2;
 
+    // Epoch number of parent block
+    uint64 parent = 3;
+
+    // Epoch number
+    uint64 epoch = 4;
+
+    // SHA-256 of block. The actual block is sent by the leader in its proposal.
+    bytes hash = 5;
+}
+
+message Proposal {
+    // Node ID corresponding to some "address:port" in the configuration file
+    uint32 node = 1;
+
+    // P-256/secp256r1 signature on propsed block
+    bytes signature = 2;
+
     // Block being voted on and to be verified by node
     Block block = 3;
 }

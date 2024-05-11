@@ -17,6 +17,15 @@ CryptoManager::~CryptoManager() {
 
 }
 
+void CryptoManager::hash_block(const Block *block, std::string &hash) {
+    // Copy fields individiually if the serialization turns out to be
+    // nondeterminstic. Should be determinisitic for the same version of
+    // the library and language binding.
+    std::string buffer;
+    block->SerializeToString(buffer);
+    return sha256_of(buffer.data(), buffer.length(), hash);
+}
+
 void CryptoManager::sha256_of(const void *data, uint64_t bytes, std::string &hash) {
     // to be implemented
 }
@@ -33,6 +42,9 @@ void CryptoManager::sign_sha256(const std::string &digest, std::string &sig) {
 
 bool CryptoManager::verify_signature(uint32_t node, const std::string &digest, const std::string &sig) {
     // to be implemented
+    if (node >= peer_key.size()) {
+        return false;
+    }
 
     // for now priv == pub and a signature is priv concatenated
     // to itself to fill out a 64 byte value

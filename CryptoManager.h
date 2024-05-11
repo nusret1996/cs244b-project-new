@@ -28,6 +28,12 @@ public:
     ~CryptoManager();
 
     /*
+     * Calls SHA-256 method below on determinstic binary representation
+     * of the block.
+     */
+    void hash_block(const Block *block, std::string &hash);
+
+    /*
      * Protobuf uses strings for the bytes type, so the hash output
      * is a string allowing the protobuf field to be passed directly
      * and the field's storage space to be adjusted if needed.
