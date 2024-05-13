@@ -59,6 +59,9 @@ extern const ::google::protobuf::internal::DescriptorTable
 class Block;
 struct BlockDefaultTypeInternal;
 extern BlockDefaultTypeInternal _Block_default_instance_;
+class Proposal;
+struct ProposalDefaultTypeInternal;
+extern ProposalDefaultTypeInternal _Proposal_default_instance_;
 class Response;
 struct ResponseDefaultTypeInternal;
 extern ResponseDefaultTypeInternal _Response_default_instance_;
@@ -75,6 +78,241 @@ namespace protobuf {
 
 
 // -------------------------------------------------------------------
+
+class Vote final :
+    public ::google::protobuf::Message /* @@protoc_insertion_point(class_definition:Vote) */ {
+ public:
+  inline Vote() : Vote(nullptr) {}
+  ~Vote() override;
+  template<typename = void>
+  explicit PROTOBUF_CONSTEXPR Vote(::google::protobuf::internal::ConstantInitialized);
+
+  inline Vote(const Vote& from)
+      : Vote(nullptr, from) {}
+  Vote(Vote&& from) noexcept
+    : Vote() {
+    *this = ::std::move(from);
+  }
+
+  inline Vote& operator=(const Vote& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline Vote& operator=(Vote&& from) noexcept {
+    if (this == &from) return *this;
+    if (GetArena() == from.GetArena()
+  #ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+        && GetArena() != nullptr
+  #endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+    ) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  inline const ::google::protobuf::UnknownFieldSet& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance);
+  }
+  inline ::google::protobuf::UnknownFieldSet* mutable_unknown_fields()
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<::google::protobuf::UnknownFieldSet>();
+  }
+
+  static const ::google::protobuf::Descriptor* descriptor() {
+    return GetDescriptor();
+  }
+  static const ::google::protobuf::Descriptor* GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  static const ::google::protobuf::Reflection* GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  static const Vote& default_instance() {
+    return *internal_default_instance();
+  }
+  static inline const Vote* internal_default_instance() {
+    return reinterpret_cast<const Vote*>(
+               &_Vote_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages =
+    2;
+
+  friend void swap(Vote& a, Vote& b) {
+    a.Swap(&b);
+  }
+  inline void Swap(Vote* other) {
+    if (other == this) return;
+  #ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() != nullptr &&
+        GetArena() == other->GetArena()) {
+   #else  // PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() == other->GetArena()) {
+  #endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(Vote* other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  Vote* New(::google::protobuf::Arena* arena = nullptr) const final {
+    return CreateMaybeMessage<Vote>(arena);
+  }
+  using ::google::protobuf::Message::CopyFrom;
+  void CopyFrom(const Vote& from);
+  using ::google::protobuf::Message::MergeFrom;
+  void MergeFrom( const Vote& from) {
+    Vote::MergeImpl(*this, from);
+  }
+  private:
+  static void MergeImpl(::google::protobuf::Message& to_msg, const ::google::protobuf::Message& from_msg);
+  public:
+  PROTOBUF_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  ::size_t ByteSizeLong() const final;
+  const char* _InternalParse(const char* ptr, ::google::protobuf::internal::ParseContext* ctx) final;
+  ::uint8_t* _InternalSerialize(
+      ::uint8_t* target, ::google::protobuf::io::EpsCopyOutputStream* stream) const final;
+  int GetCachedSize() const { return _impl_._cached_size_.Get(); }
+
+  private:
+  ::google::protobuf::internal::CachedSize* AccessCachedSize() const final;
+  void SharedCtor(::google::protobuf::Arena* arena);
+  void SharedDtor();
+  void InternalSwap(Vote* other);
+
+  private:
+  friend class ::google::protobuf::internal::AnyMetadata;
+  static ::absl::string_view FullMessageName() {
+    return "Vote";
+  }
+  protected:
+  explicit Vote(::google::protobuf::Arena* arena);
+  Vote(::google::protobuf::Arena* arena, const Vote& from);
+  public:
+
+  static const ClassData _class_data_;
+  const ::google::protobuf::Message::ClassData*GetClassData() const final;
+
+  ::google::protobuf::Metadata GetMetadata() const final;
+
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+
+  enum : int {
+    kSignatureFieldNumber = 2,
+    kHashFieldNumber = 5,
+    kParentFieldNumber = 3,
+    kEpochFieldNumber = 4,
+    kNodeFieldNumber = 1,
+  };
+  // bytes signature = 2;
+  void clear_signature() ;
+  const std::string& signature() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_signature(Arg_&& arg, Args_... args);
+  std::string* mutable_signature();
+  PROTOBUF_NODISCARD std::string* release_signature();
+  void set_allocated_signature(std::string* value);
+
+  private:
+  const std::string& _internal_signature() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_signature(
+      const std::string& value);
+  std::string* _internal_mutable_signature();
+
+  public:
+  // bytes hash = 5;
+  void clear_hash() ;
+  const std::string& hash() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_hash(Arg_&& arg, Args_... args);
+  std::string* mutable_hash();
+  PROTOBUF_NODISCARD std::string* release_hash();
+  void set_allocated_hash(std::string* value);
+
+  private:
+  const std::string& _internal_hash() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_hash(
+      const std::string& value);
+  std::string* _internal_mutable_hash();
+
+  public:
+  // uint64 parent = 3;
+  void clear_parent() ;
+  ::uint64_t parent() const;
+  void set_parent(::uint64_t value);
+
+  private:
+  ::uint64_t _internal_parent() const;
+  void _internal_set_parent(::uint64_t value);
+
+  public:
+  // uint64 epoch = 4;
+  void clear_epoch() ;
+  ::uint64_t epoch() const;
+  void set_epoch(::uint64_t value);
+
+  private:
+  ::uint64_t _internal_epoch() const;
+  void _internal_set_epoch(::uint64_t value);
+
+  public:
+  // uint32 node = 1;
+  void clear_node() ;
+  ::uint32_t node() const;
+  void set_node(::uint32_t value);
+
+  private:
+  ::uint32_t _internal_node() const;
+  void _internal_set_node(::uint32_t value);
+
+  public:
+  // @@protoc_insertion_point(class_scope:Vote)
+ private:
+  class _Internal;
+
+  friend class ::google::protobuf::internal::TcParser;
+  static const ::google::protobuf::internal::TcParseTable<
+      3, 5, 0,
+      0, 2>
+      _table_;
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+
+        inline explicit constexpr Impl_(
+            ::google::protobuf::internal::ConstantInitialized) noexcept;
+        inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                              ::google::protobuf::Arena* arena);
+        inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                              ::google::protobuf::Arena* arena, const Impl_& from);
+    ::google::protobuf::internal::ArenaStringPtr signature_;
+    ::google::protobuf::internal::ArenaStringPtr hash_;
+    ::uint64_t parent_;
+    ::uint64_t epoch_;
+    ::uint32_t node_;
+    mutable ::google::protobuf::internal::CachedSize _cached_size_;
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_streamlet_2eproto;
+};// -------------------------------------------------------------------
 
 class Response final :
     public ::google::protobuf::internal::ZeroFieldsBase /* @@protoc_insertion_point(class_definition:Response) */ {
@@ -344,11 +582,12 @@ class Block final :
   // accessors -------------------------------------------------------
 
   enum : int {
-    kPhashFieldNumber = 1,
-    kTxnsFieldNumber = 3,
-    kEpochFieldNumber = 2,
+    kPhashFieldNumber = 2,
+    kTxnsFieldNumber = 4,
+    kParentFieldNumber = 1,
+    kEpochFieldNumber = 3,
   };
-  // bytes phash = 1;
+  // bytes phash = 2;
   void clear_phash() ;
   const std::string& phash() const;
   template <typename Arg_ = const std::string&, typename... Args_>
@@ -364,7 +603,7 @@ class Block final :
   std::string* _internal_mutable_phash();
 
   public:
-  // bytes txns = 3;
+  // bytes txns = 4;
   void clear_txns() ;
   const std::string& txns() const;
   template <typename Arg_ = const std::string&, typename... Args_>
@@ -380,7 +619,17 @@ class Block final :
   std::string* _internal_mutable_txns();
 
   public:
-  // uint64 epoch = 2;
+  // uint64 parent = 1;
+  void clear_parent() ;
+  ::uint64_t parent() const;
+  void set_parent(::uint64_t value);
+
+  private:
+  ::uint64_t _internal_parent() const;
+  void _internal_set_parent(::uint64_t value);
+
+  public:
+  // uint64 epoch = 3;
   void clear_epoch() ;
   ::uint64_t epoch() const;
   void set_epoch(::uint64_t value);
@@ -396,7 +645,7 @@ class Block final :
 
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      2, 3, 0,
+      2, 4, 0,
       0, 2>
       _table_;
   friend class ::google::protobuf::MessageLite;
@@ -415,6 +664,7 @@ class Block final :
                               ::google::protobuf::Arena* arena, const Impl_& from);
     ::google::protobuf::internal::ArenaStringPtr phash_;
     ::google::protobuf::internal::ArenaStringPtr txns_;
+    ::uint64_t parent_;
     ::uint64_t epoch_;
     mutable ::google::protobuf::internal::CachedSize _cached_size_;
     PROTOBUF_TSAN_DECLARE_MEMBER
@@ -423,26 +673,26 @@ class Block final :
   friend struct ::TableStruct_streamlet_2eproto;
 };// -------------------------------------------------------------------
 
-class Vote final :
-    public ::google::protobuf::Message /* @@protoc_insertion_point(class_definition:Vote) */ {
+class Proposal final :
+    public ::google::protobuf::Message /* @@protoc_insertion_point(class_definition:Proposal) */ {
  public:
-  inline Vote() : Vote(nullptr) {}
-  ~Vote() override;
+  inline Proposal() : Proposal(nullptr) {}
+  ~Proposal() override;
   template<typename = void>
-  explicit PROTOBUF_CONSTEXPR Vote(::google::protobuf::internal::ConstantInitialized);
+  explicit PROTOBUF_CONSTEXPR Proposal(::google::protobuf::internal::ConstantInitialized);
 
-  inline Vote(const Vote& from)
-      : Vote(nullptr, from) {}
-  Vote(Vote&& from) noexcept
-    : Vote() {
+  inline Proposal(const Proposal& from)
+      : Proposal(nullptr, from) {}
+  Proposal(Proposal&& from) noexcept
+    : Proposal() {
     *this = ::std::move(from);
   }
 
-  inline Vote& operator=(const Vote& from) {
+  inline Proposal& operator=(const Proposal& from) {
     CopyFrom(from);
     return *this;
   }
-  inline Vote& operator=(Vote&& from) noexcept {
+  inline Proposal& operator=(Proposal&& from) noexcept {
     if (this == &from) return *this;
     if (GetArena() == from.GetArena()
   #ifdef PROTOBUF_FORCE_COPY_IN_MOVE
@@ -474,20 +724,20 @@ class Vote final :
   static const ::google::protobuf::Reflection* GetReflection() {
     return default_instance().GetMetadata().reflection;
   }
-  static const Vote& default_instance() {
+  static const Proposal& default_instance() {
     return *internal_default_instance();
   }
-  static inline const Vote* internal_default_instance() {
-    return reinterpret_cast<const Vote*>(
-               &_Vote_default_instance_);
+  static inline const Proposal* internal_default_instance() {
+    return reinterpret_cast<const Proposal*>(
+               &_Proposal_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    2;
+    3;
 
-  friend void swap(Vote& a, Vote& b) {
+  friend void swap(Proposal& a, Proposal& b) {
     a.Swap(&b);
   }
-  inline void Swap(Vote* other) {
+  inline void Swap(Proposal* other) {
     if (other == this) return;
   #ifdef PROTOBUF_FORCE_COPY_IN_SWAP
     if (GetArena() != nullptr &&
@@ -500,7 +750,7 @@ class Vote final :
       ::google::protobuf::internal::GenericSwap(this, other);
     }
   }
-  void UnsafeArenaSwap(Vote* other) {
+  void UnsafeArenaSwap(Proposal* other) {
     if (other == this) return;
     ABSL_DCHECK(GetArena() == other->GetArena());
     InternalSwap(other);
@@ -508,14 +758,14 @@ class Vote final :
 
   // implements Message ----------------------------------------------
 
-  Vote* New(::google::protobuf::Arena* arena = nullptr) const final {
-    return CreateMaybeMessage<Vote>(arena);
+  Proposal* New(::google::protobuf::Arena* arena = nullptr) const final {
+    return CreateMaybeMessage<Proposal>(arena);
   }
   using ::google::protobuf::Message::CopyFrom;
-  void CopyFrom(const Vote& from);
+  void CopyFrom(const Proposal& from);
   using ::google::protobuf::Message::MergeFrom;
-  void MergeFrom( const Vote& from) {
-    Vote::MergeImpl(*this, from);
+  void MergeFrom( const Proposal& from) {
+    Proposal::MergeImpl(*this, from);
   }
   private:
   static void MergeImpl(::google::protobuf::Message& to_msg, const ::google::protobuf::Message& from_msg);
@@ -533,16 +783,16 @@ class Vote final :
   ::google::protobuf::internal::CachedSize* AccessCachedSize() const final;
   void SharedCtor(::google::protobuf::Arena* arena);
   void SharedDtor();
-  void InternalSwap(Vote* other);
+  void InternalSwap(Proposal* other);
 
   private:
   friend class ::google::protobuf::internal::AnyMetadata;
   static ::absl::string_view FullMessageName() {
-    return "Vote";
+    return "Proposal";
   }
   protected:
-  explicit Vote(::google::protobuf::Arena* arena);
-  Vote(::google::protobuf::Arena* arena, const Vote& from);
+  explicit Proposal(::google::protobuf::Arena* arena);
+  Proposal(::google::protobuf::Arena* arena, const Proposal& from);
   public:
 
   static const ClassData _class_data_;
@@ -600,7 +850,7 @@ class Vote final :
   void _internal_set_node(::uint32_t value);
 
   public:
-  // @@protoc_insertion_point(class_scope:Vote)
+  // @@protoc_insertion_point(class_scope:Proposal)
  private:
   class _Internal;
 
@@ -654,7 +904,30 @@ class Vote final :
 
 // Block
 
-// bytes phash = 1;
+// uint64 parent = 1;
+inline void Block::clear_parent() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.parent_ = ::uint64_t{0u};
+}
+inline ::uint64_t Block::parent() const {
+  // @@protoc_insertion_point(field_get:Block.parent)
+  return _internal_parent();
+}
+inline void Block::set_parent(::uint64_t value) {
+  _internal_set_parent(value);
+  // @@protoc_insertion_point(field_set:Block.parent)
+}
+inline ::uint64_t Block::_internal_parent() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.parent_;
+}
+inline void Block::_internal_set_parent(::uint64_t value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ;
+  _impl_.parent_ = value;
+}
+
+// bytes phash = 2;
 inline void Block::clear_phash() {
   PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
   _impl_.phash_.ClearToEmpty();
@@ -707,7 +980,7 @@ inline void Block::set_allocated_phash(std::string* value) {
   // @@protoc_insertion_point(field_set_allocated:Block.phash)
 }
 
-// uint64 epoch = 2;
+// uint64 epoch = 3;
 inline void Block::clear_epoch() {
   PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
   _impl_.epoch_ = ::uint64_t{0u};
@@ -730,7 +1003,7 @@ inline void Block::_internal_set_epoch(::uint64_t value) {
   _impl_.epoch_ = value;
 }
 
-// bytes txns = 3;
+// bytes txns = 4;
 inline void Block::clear_txns() {
   PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
   _impl_.txns_.ClearToEmpty();
@@ -863,27 +1136,206 @@ inline void Vote::set_allocated_signature(std::string* value) {
   // @@protoc_insertion_point(field_set_allocated:Vote.signature)
 }
 
+// uint64 parent = 3;
+inline void Vote::clear_parent() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.parent_ = ::uint64_t{0u};
+}
+inline ::uint64_t Vote::parent() const {
+  // @@protoc_insertion_point(field_get:Vote.parent)
+  return _internal_parent();
+}
+inline void Vote::set_parent(::uint64_t value) {
+  _internal_set_parent(value);
+  // @@protoc_insertion_point(field_set:Vote.parent)
+}
+inline ::uint64_t Vote::_internal_parent() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.parent_;
+}
+inline void Vote::_internal_set_parent(::uint64_t value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ;
+  _impl_.parent_ = value;
+}
+
+// uint64 epoch = 4;
+inline void Vote::clear_epoch() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.epoch_ = ::uint64_t{0u};
+}
+inline ::uint64_t Vote::epoch() const {
+  // @@protoc_insertion_point(field_get:Vote.epoch)
+  return _internal_epoch();
+}
+inline void Vote::set_epoch(::uint64_t value) {
+  _internal_set_epoch(value);
+  // @@protoc_insertion_point(field_set:Vote.epoch)
+}
+inline ::uint64_t Vote::_internal_epoch() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.epoch_;
+}
+inline void Vote::_internal_set_epoch(::uint64_t value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ;
+  _impl_.epoch_ = value;
+}
+
+// bytes hash = 5;
+inline void Vote::clear_hash() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.hash_.ClearToEmpty();
+}
+inline const std::string& Vote::hash() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:Vote.hash)
+  return _internal_hash();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void Vote::set_hash(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ;
+  _impl_.hash_.SetBytes(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:Vote.hash)
+}
+inline std::string* Vote::mutable_hash() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_hash();
+  // @@protoc_insertion_point(field_mutable:Vote.hash)
+  return _s;
+}
+inline const std::string& Vote::_internal_hash() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.hash_.Get();
+}
+inline void Vote::_internal_set_hash(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ;
+  _impl_.hash_.Set(value, GetArena());
+}
+inline std::string* Vote::_internal_mutable_hash() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ;
+  return _impl_.hash_.Mutable( GetArena());
+}
+inline std::string* Vote::release_hash() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:Vote.hash)
+  return _impl_.hash_.Release();
+}
+inline void Vote::set_allocated_hash(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.hash_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.hash_.IsDefault()) {
+          _impl_.hash_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:Vote.hash)
+}
+
+// -------------------------------------------------------------------
+
+// Proposal
+
+// uint32 node = 1;
+inline void Proposal::clear_node() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.node_ = 0u;
+}
+inline ::uint32_t Proposal::node() const {
+  // @@protoc_insertion_point(field_get:Proposal.node)
+  return _internal_node();
+}
+inline void Proposal::set_node(::uint32_t value) {
+  _internal_set_node(value);
+  // @@protoc_insertion_point(field_set:Proposal.node)
+}
+inline ::uint32_t Proposal::_internal_node() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.node_;
+}
+inline void Proposal::_internal_set_node(::uint32_t value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ;
+  _impl_.node_ = value;
+}
+
+// bytes signature = 2;
+inline void Proposal::clear_signature() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.signature_.ClearToEmpty();
+}
+inline const std::string& Proposal::signature() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:Proposal.signature)
+  return _internal_signature();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void Proposal::set_signature(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ;
+  _impl_.signature_.SetBytes(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:Proposal.signature)
+}
+inline std::string* Proposal::mutable_signature() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_signature();
+  // @@protoc_insertion_point(field_mutable:Proposal.signature)
+  return _s;
+}
+inline const std::string& Proposal::_internal_signature() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.signature_.Get();
+}
+inline void Proposal::_internal_set_signature(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ;
+  _impl_.signature_.Set(value, GetArena());
+}
+inline std::string* Proposal::_internal_mutable_signature() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ;
+  return _impl_.signature_.Mutable( GetArena());
+}
+inline std::string* Proposal::release_signature() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:Proposal.signature)
+  return _impl_.signature_.Release();
+}
+inline void Proposal::set_allocated_signature(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.signature_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.signature_.IsDefault()) {
+          _impl_.signature_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:Proposal.signature)
+}
+
 // .Block block = 3;
-inline bool Vote::has_block() const {
+inline bool Proposal::has_block() const {
   bool value = (_impl_._has_bits_[0] & 0x00000001u) != 0;
   PROTOBUF_ASSUME(!value || _impl_.block_ != nullptr);
   return value;
 }
-inline void Vote::clear_block() {
+inline void Proposal::clear_block() {
   PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
   if (_impl_.block_ != nullptr) _impl_.block_->Clear();
   _impl_._has_bits_[0] &= ~0x00000001u;
 }
-inline const ::Block& Vote::_internal_block() const {
+inline const ::Block& Proposal::_internal_block() const {
   PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
   const ::Block* p = _impl_.block_;
   return p != nullptr ? *p : reinterpret_cast<const ::Block&>(::_Block_default_instance_);
 }
-inline const ::Block& Vote::block() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  // @@protoc_insertion_point(field_get:Vote.block)
+inline const ::Block& Proposal::block() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:Proposal.block)
   return _internal_block();
 }
-inline void Vote::unsafe_arena_set_allocated_block(::Block* value) {
+inline void Proposal::unsafe_arena_set_allocated_block(::Block* value) {
   PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
   if (GetArena() == nullptr) {
     delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.block_);
@@ -894,9 +1346,9 @@ inline void Vote::unsafe_arena_set_allocated_block(::Block* value) {
   } else {
     _impl_._has_bits_[0] &= ~0x00000001u;
   }
-  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:Vote.block)
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:Proposal.block)
 }
-inline ::Block* Vote::release_block() {
+inline ::Block* Proposal::release_block() {
   PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
 
   _impl_._has_bits_[0] &= ~0x00000001u;
@@ -915,16 +1367,16 @@ inline ::Block* Vote::release_block() {
 #endif  // !PROTOBUF_FORCE_COPY_IN_RELEASE
   return released;
 }
-inline ::Block* Vote::unsafe_arena_release_block() {
+inline ::Block* Proposal::unsafe_arena_release_block() {
   PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
-  // @@protoc_insertion_point(field_release:Vote.block)
+  // @@protoc_insertion_point(field_release:Proposal.block)
 
   _impl_._has_bits_[0] &= ~0x00000001u;
   ::Block* temp = _impl_.block_;
   _impl_.block_ = nullptr;
   return temp;
 }
-inline ::Block* Vote::_internal_mutable_block() {
+inline ::Block* Proposal::_internal_mutable_block() {
   PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
   _impl_._has_bits_[0] |= 0x00000001u;
   if (_impl_.block_ == nullptr) {
@@ -933,12 +1385,12 @@ inline ::Block* Vote::_internal_mutable_block() {
   }
   return _impl_.block_;
 }
-inline ::Block* Vote::mutable_block() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+inline ::Block* Proposal::mutable_block() ABSL_ATTRIBUTE_LIFETIME_BOUND {
   ::Block* _msg = _internal_mutable_block();
-  // @@protoc_insertion_point(field_mutable:Vote.block)
+  // @@protoc_insertion_point(field_mutable:Proposal.block)
   return _msg;
 }
-inline void Vote::set_allocated_block(::Block* value) {
+inline void Proposal::set_allocated_block(::Block* value) {
   ::google::protobuf::Arena* message_arena = GetArena();
   PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
   if (message_arena == nullptr) {
@@ -956,7 +1408,7 @@ inline void Vote::set_allocated_block(::Block* value) {
   }
 
   _impl_.block_ = reinterpret_cast<::Block*>(value);
-  // @@protoc_insertion_point(field_set_allocated:Vote.block)
+  // @@protoc_insertion_point(field_set_allocated:Proposal.block)
 }
 
 #ifdef __GNUC__

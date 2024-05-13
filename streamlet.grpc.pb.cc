@@ -59,23 +59,23 @@ void Streamlet::Stub::async::NotifyVote(::grpc::ClientContext* context, const ::
   return result;
 }
 
-::grpc::Status Streamlet::Stub::ProposeBlock(::grpc::ClientContext* context, const ::Vote& request, ::Response* response) {
-  return ::grpc::internal::BlockingUnaryCall< ::Vote, ::Response, ::grpc::protobuf::MessageLite, ::grpc::protobuf::MessageLite>(channel_.get(), rpcmethod_ProposeBlock_, context, request, response);
+::grpc::Status Streamlet::Stub::ProposeBlock(::grpc::ClientContext* context, const ::Proposal& request, ::Response* response) {
+  return ::grpc::internal::BlockingUnaryCall< ::Proposal, ::Response, ::grpc::protobuf::MessageLite, ::grpc::protobuf::MessageLite>(channel_.get(), rpcmethod_ProposeBlock_, context, request, response);
 }
 
-void Streamlet::Stub::async::ProposeBlock(::grpc::ClientContext* context, const ::Vote* request, ::Response* response, std::function<void(::grpc::Status)> f) {
-  ::grpc::internal::CallbackUnaryCall< ::Vote, ::Response, ::grpc::protobuf::MessageLite, ::grpc::protobuf::MessageLite>(stub_->channel_.get(), stub_->rpcmethod_ProposeBlock_, context, request, response, std::move(f));
+void Streamlet::Stub::async::ProposeBlock(::grpc::ClientContext* context, const ::Proposal* request, ::Response* response, std::function<void(::grpc::Status)> f) {
+  ::grpc::internal::CallbackUnaryCall< ::Proposal, ::Response, ::grpc::protobuf::MessageLite, ::grpc::protobuf::MessageLite>(stub_->channel_.get(), stub_->rpcmethod_ProposeBlock_, context, request, response, std::move(f));
 }
 
-void Streamlet::Stub::async::ProposeBlock(::grpc::ClientContext* context, const ::Vote* request, ::Response* response, ::grpc::ClientUnaryReactor* reactor) {
+void Streamlet::Stub::async::ProposeBlock(::grpc::ClientContext* context, const ::Proposal* request, ::Response* response, ::grpc::ClientUnaryReactor* reactor) {
   ::grpc::internal::ClientCallbackUnaryFactory::Create< ::grpc::protobuf::MessageLite, ::grpc::protobuf::MessageLite>(stub_->channel_.get(), stub_->rpcmethod_ProposeBlock_, context, request, response, reactor);
 }
 
-::grpc::ClientAsyncResponseReader< ::Response>* Streamlet::Stub::PrepareAsyncProposeBlockRaw(::grpc::ClientContext* context, const ::Vote& request, ::grpc::CompletionQueue* cq) {
-  return ::grpc::internal::ClientAsyncResponseReaderHelper::Create< ::Response, ::Vote, ::grpc::protobuf::MessageLite, ::grpc::protobuf::MessageLite>(channel_.get(), cq, rpcmethod_ProposeBlock_, context, request);
+::grpc::ClientAsyncResponseReader< ::Response>* Streamlet::Stub::PrepareAsyncProposeBlockRaw(::grpc::ClientContext* context, const ::Proposal& request, ::grpc::CompletionQueue* cq) {
+  return ::grpc::internal::ClientAsyncResponseReaderHelper::Create< ::Response, ::Proposal, ::grpc::protobuf::MessageLite, ::grpc::protobuf::MessageLite>(channel_.get(), cq, rpcmethod_ProposeBlock_, context, request);
 }
 
-::grpc::ClientAsyncResponseReader< ::Response>* Streamlet::Stub::AsyncProposeBlockRaw(::grpc::ClientContext* context, const ::Vote& request, ::grpc::CompletionQueue* cq) {
+::grpc::ClientAsyncResponseReader< ::Response>* Streamlet::Stub::AsyncProposeBlockRaw(::grpc::ClientContext* context, const ::Proposal& request, ::grpc::CompletionQueue* cq) {
   auto* result =
     this->PrepareAsyncProposeBlockRaw(context, request, cq);
   result->StartCall();
@@ -96,10 +96,10 @@ Streamlet::Service::Service() {
   AddMethod(new ::grpc::internal::RpcServiceMethod(
       Streamlet_method_names[1],
       ::grpc::internal::RpcMethod::NORMAL_RPC,
-      new ::grpc::internal::RpcMethodHandler< Streamlet::Service, ::Vote, ::Response, ::grpc::protobuf::MessageLite, ::grpc::protobuf::MessageLite>(
+      new ::grpc::internal::RpcMethodHandler< Streamlet::Service, ::Proposal, ::Response, ::grpc::protobuf::MessageLite, ::grpc::protobuf::MessageLite>(
           [](Streamlet::Service* service,
              ::grpc::ServerContext* ctx,
-             const ::Vote* req,
+             const ::Proposal* req,
              ::Response* resp) {
                return service->ProposeBlock(ctx, req, resp);
              }, this)));
@@ -115,7 +115,7 @@ Streamlet::Service::~Service() {
   return ::grpc::Status(::grpc::StatusCode::UNIMPLEMENTED, "");
 }
 
-::grpc::Status Streamlet::Service::ProposeBlock(::grpc::ServerContext* context, const ::Vote* request, ::Response* response) {
+::grpc::Status Streamlet::Service::ProposeBlock(::grpc::ServerContext* context, const ::Proposal* request, ::Response* response) {
   (void) context;
   (void) request;
   (void) response;

@@ -9,7 +9,7 @@ service Streamlet {
     // but explicit code path to verify the leader and epoch and
     // to facilitate implementing and testing different
     // interpretations of the protocol description
-    rpc ProposeBlock(Vote) returns (Response) {}
+    rpc ProposeBlock(Proposal) returns (Response) {}
 }
 
 // Response type can be used to respond with information.

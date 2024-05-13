@@ -20,6 +20,33 @@ PROTOBUF_PRAGMA_INIT_SEG
 namespace _pb = ::google::protobuf;
 namespace _pbi = ::google::protobuf::internal;
 namespace _fl = ::google::protobuf::internal::field_layout;
+
+inline constexpr Vote::Impl_::Impl_(
+    ::_pbi::ConstantInitialized) noexcept
+      : signature_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        hash_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        parent_{::uint64_t{0u}},
+        epoch_{::uint64_t{0u}},
+        node_{0u},
+        _cached_size_{0} {}
+
+template <typename>
+PROTOBUF_CONSTEXPR Vote::Vote(::_pbi::ConstantInitialized)
+    : _impl_(::_pbi::ConstantInitialized()) {}
+struct VoteDefaultTypeInternal {
+  PROTOBUF_CONSTEXPR VoteDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
+  ~VoteDefaultTypeInternal() {}
+  union {
+    Vote _instance;
+  };
+};
+
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 VoteDefaultTypeInternal _Vote_default_instance_;
       template <typename>
 PROTOBUF_CONSTEXPR Response::Response(::_pbi::ConstantInitialized) {}
 struct ResponseDefaultTypeInternal {
@@ -41,6 +68,7 @@ inline constexpr Block::Impl_::Impl_(
         txns_(
             &::google::protobuf::internal::fixed_address_empty_string,
             ::_pbi::ConstantInitialized()),
+        parent_{::uint64_t{0u}},
         epoch_{::uint64_t{0u}},
         _cached_size_{0} {}
 
@@ -58,7 +86,7 @@ struct BlockDefaultTypeInternal {
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
     PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 BlockDefaultTypeInternal _Block_default_instance_;
 
-inline constexpr Vote::Impl_::Impl_(
+inline constexpr Proposal::Impl_::Impl_(
     ::_pbi::ConstantInitialized) noexcept
       : _cached_size_{0},
         signature_(
@@ -68,19 +96,19 @@ inline constexpr Vote::Impl_::Impl_(
         node_{0u} {}
 
 template <typename>
-PROTOBUF_CONSTEXPR Vote::Vote(::_pbi::ConstantInitialized)
+PROTOBUF_CONSTEXPR Proposal::Proposal(::_pbi::ConstantInitialized)
     : _impl_(::_pbi::ConstantInitialized()) {}
-struct VoteDefaultTypeInternal {
-  PROTOBUF_CONSTEXPR VoteDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
-  ~VoteDefaultTypeInternal() {}
+struct ProposalDefaultTypeInternal {
+  PROTOBUF_CONSTEXPR ProposalDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
+  ~ProposalDefaultTypeInternal() {}
   union {
-    Vote _instance;
+    Proposal _instance;
   };
 };
 
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
-    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 VoteDefaultTypeInternal _Vote_default_instance_;
-static ::_pb::Metadata file_level_metadata_streamlet_2eproto[3];
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 ProposalDefaultTypeInternal _Proposal_default_instance_;
+static ::_pb::Metadata file_level_metadata_streamlet_2eproto[4];
 static constexpr const ::_pb::EnumDescriptor**
     file_level_enum_descriptors_streamlet_2eproto = nullptr;
 static constexpr const ::_pb::ServiceDescriptor**
@@ -103,10 +131,11 @@ const ::uint32_t TableStruct_streamlet_2eproto::offsets[] PROTOBUF_SECTION_VARIA
     ~0u,  // no _inlined_string_donated_
     ~0u,  // no _split_
     ~0u,  // no sizeof(Split)
+    PROTOBUF_FIELD_OFFSET(::Block, _impl_.parent_),
     PROTOBUF_FIELD_OFFSET(::Block, _impl_.phash_),
     PROTOBUF_FIELD_OFFSET(::Block, _impl_.epoch_),
     PROTOBUF_FIELD_OFFSET(::Block, _impl_.txns_),
-    PROTOBUF_FIELD_OFFSET(::Vote, _impl_._has_bits_),
+    ~0u,  // no _has_bits_
     PROTOBUF_FIELD_OFFSET(::Vote, _internal_metadata_),
     ~0u,  // no _extensions_
     ~0u,  // no _oneof_case_
@@ -116,7 +145,20 @@ const ::uint32_t TableStruct_streamlet_2eproto::offsets[] PROTOBUF_SECTION_VARIA
     ~0u,  // no sizeof(Split)
     PROTOBUF_FIELD_OFFSET(::Vote, _impl_.node_),
     PROTOBUF_FIELD_OFFSET(::Vote, _impl_.signature_),
-    PROTOBUF_FIELD_OFFSET(::Vote, _impl_.block_),
+    PROTOBUF_FIELD_OFFSET(::Vote, _impl_.parent_),
+    PROTOBUF_FIELD_OFFSET(::Vote, _impl_.epoch_),
+    PROTOBUF_FIELD_OFFSET(::Vote, _impl_.hash_),
+    PROTOBUF_FIELD_OFFSET(::Proposal, _impl_._has_bits_),
+    PROTOBUF_FIELD_OFFSET(::Proposal, _internal_metadata_),
+    ~0u,  // no _extensions_
+    ~0u,  // no _oneof_case_
+    ~0u,  // no _weak_field_map_
+    ~0u,  // no _inlined_string_donated_
+    ~0u,  // no _split_
+    ~0u,  // no sizeof(Split)
+    PROTOBUF_FIELD_OFFSET(::Proposal, _impl_.node_),
+    PROTOBUF_FIELD_OFFSET(::Proposal, _impl_.signature_),
+    PROTOBUF_FIELD_OFFSET(::Proposal, _impl_.block_),
     ~0u,
     ~0u,
     0,
@@ -126,33 +168,38 @@ static const ::_pbi::MigrationSchema
     schemas[] PROTOBUF_SECTION_VARIABLE(protodesc_cold) = {
         {0, -1, -1, sizeof(::Response)},
         {8, -1, -1, sizeof(::Block)},
-        {19, 30, -1, sizeof(::Vote)},
+        {20, -1, -1, sizeof(::Vote)},
+        {33, 44, -1, sizeof(::Proposal)},
 };
 
 static const ::_pb::Message* const file_default_instances[] = {
     &::_Response_default_instance_._instance,
     &::_Block_default_instance_._instance,
     &::_Vote_default_instance_._instance,
+    &::_Proposal_default_instance_._instance,
 };
 const char descriptor_table_protodef_streamlet_2eproto[] PROTOBUF_SECTION_VARIABLE(protodesc_cold) = {
-    "\n\017streamlet.proto\"\n\n\010Response\"3\n\005Block\022\r"
-    "\n\005phash\030\001 \001(\014\022\r\n\005epoch\030\002 \001(\004\022\014\n\004txns\030\003 \001"
-    "(\014\">\n\004Vote\022\014\n\004node\030\001 \001(\r\022\021\n\tsignature\030\002 "
-    "\001(\014\022\025\n\005block\030\003 \001(\0132\006.Block2Q\n\tStreamlet\022"
-    " \n\nNotifyVote\022\005.Vote\032\t.Response\"\000\022\"\n\014Pro"
-    "poseBlock\022\005.Vote\032\t.Response\"\000b\006proto3"
+    "\n\017streamlet.proto\"\n\n\010Response\"C\n\005Block\022\016"
+    "\n\006parent\030\001 \001(\004\022\r\n\005phash\030\002 \001(\014\022\r\n\005epoch\030\003"
+    " \001(\004\022\014\n\004txns\030\004 \001(\014\"T\n\004Vote\022\014\n\004node\030\001 \001(\r"
+    "\022\021\n\tsignature\030\002 \001(\014\022\016\n\006parent\030\003 \001(\004\022\r\n\005e"
+    "poch\030\004 \001(\004\022\014\n\004hash\030\005 \001(\014\"B\n\010Proposal\022\014\n\004"
+    "node\030\001 \001(\r\022\021\n\tsignature\030\002 \001(\014\022\025\n\005block\030\003"
+    " \001(\0132\006.Block2U\n\tStreamlet\022 \n\nNotifyVote\022"
+    "\005.Vote\032\t.Response\"\000\022&\n\014ProposeBlock\022\t.Pr"
+    "oposal\032\t.Response\"\000b\006proto3"
 };
 static ::absl::once_flag descriptor_table_streamlet_2eproto_once;
 const ::_pbi::DescriptorTable descriptor_table_streamlet_2eproto = {
     false,
     false,
-    237,
+    347,
     descriptor_table_protodef_streamlet_2eproto,
     "streamlet.proto",
     &descriptor_table_streamlet_2eproto_once,
     nullptr,
     0,
-    3,
+    4,
     schemas,
     file_default_instances,
     TableStruct_streamlet_2eproto::offsets,
@@ -240,7 +287,13 @@ Block::Block(
   _internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
       from._internal_metadata_);
   new (&_impl_) Impl_(internal_visibility(), arena, from._impl_);
-  _impl_.epoch_ = from._impl_.epoch_;
+  ::memcpy(reinterpret_cast<char *>(&_impl_) +
+               offsetof(Impl_, parent_),
+           reinterpret_cast<const char *>(&from._impl_) +
+               offsetof(Impl_, parent_),
+           offsetof(Impl_, epoch_) -
+               offsetof(Impl_, parent_) +
+               sizeof(Impl_::epoch_));
 
   // @@protoc_insertion_point(copy_constructor:Block)
 }
@@ -253,7 +306,12 @@ inline PROTOBUF_NDEBUG_INLINE Block::Impl_::Impl_(
 
 inline void Block::SharedCtor(::_pb::Arena* arena) {
   new (&_impl_) Impl_(internal_visibility(), arena);
-  _impl_.epoch_ = {};
+  ::memset(reinterpret_cast<char *>(&_impl_) +
+               offsetof(Impl_, parent_),
+           0,
+           offsetof(Impl_, epoch_) -
+               offsetof(Impl_, parent_) +
+               sizeof(Impl_::epoch_));
 }
 Block::~Block() {
   // @@protoc_insertion_point(destructor:Block)
@@ -276,7 +334,9 @@ PROTOBUF_NOINLINE void Block::Clear() {
 
   _impl_.phash_.ClearToEmpty();
   _impl_.txns_.ClearToEmpty();
-  _impl_.epoch_ = ::uint64_t{0u};
+  ::memset(&_impl_.parent_, 0, static_cast<::size_t>(
+      reinterpret_cast<char*>(&_impl_.epoch_) -
+      reinterpret_cast<char*>(&_impl_.parent_)) + sizeof(_impl_.epoch_));
   _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
 }
 
@@ -288,40 +348,45 @@ const char* Block::_InternalParse(
 
 
 PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
-const ::_pbi::TcParseTable<2, 3, 0, 0, 2> Block::_table_ = {
+const ::_pbi::TcParseTable<2, 4, 0, 0, 2> Block::_table_ = {
   {
     0,  // no _has_bits_
     0, // no _extensions_
-    3, 24,  // max_field_number, fast_idx_mask
+    4, 24,  // max_field_number, fast_idx_mask
     offsetof(decltype(_table_), field_lookup_table),
-    4294967288,  // skipmap
+    4294967280,  // skipmap
     offsetof(decltype(_table_), field_entries),
-    3,  // num_field_entries
+    4,  // num_field_entries
     0,  // num_aux_entries
     offsetof(decltype(_table_), field_names),  // no aux_entries
     &_Block_default_instance_._instance,
     ::_pbi::TcParser::GenericFallback,  // fallback
   }, {{
-    {::_pbi::TcParser::MiniParse, {}},
-    // bytes phash = 1;
+    // bytes txns = 4;
     {::_pbi::TcParser::FastBS1,
-     {10, 63, 0, PROTOBUF_FIELD_OFFSET(Block, _impl_.phash_)}},
-    // uint64 epoch = 2;
+     {34, 63, 0, PROTOBUF_FIELD_OFFSET(Block, _impl_.txns_)}},
+    // uint64 parent = 1;
+    {::_pbi::TcParser::SingularVarintNoZag1<::uint64_t, offsetof(Block, _impl_.parent_), 63>(),
+     {8, 63, 0, PROTOBUF_FIELD_OFFSET(Block, _impl_.parent_)}},
+    // bytes phash = 2;
+    {::_pbi::TcParser::FastBS1,
+     {18, 63, 0, PROTOBUF_FIELD_OFFSET(Block, _impl_.phash_)}},
+    // uint64 epoch = 3;
     {::_pbi::TcParser::SingularVarintNoZag1<::uint64_t, offsetof(Block, _impl_.epoch_), 63>(),
-     {16, 63, 0, PROTOBUF_FIELD_OFFSET(Block, _impl_.epoch_)}},
-    // bytes txns = 3;
-    {::_pbi::TcParser::FastBS1,
-     {26, 63, 0, PROTOBUF_FIELD_OFFSET(Block, _impl_.txns_)}},
+     {24, 63, 0, PROTOBUF_FIELD_OFFSET(Block, _impl_.epoch_)}},
   }}, {{
     65535, 65535
   }}, {{
-    // bytes phash = 1;
+    // uint64 parent = 1;
+    {PROTOBUF_FIELD_OFFSET(Block, _impl_.parent_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUInt64)},
+    // bytes phash = 2;
     {PROTOBUF_FIELD_OFFSET(Block, _impl_.phash_), 0, 0,
     (0 | ::_fl::kFcSingular | ::_fl::kBytes | ::_fl::kRepAString)},
-    // uint64 epoch = 2;
+    // uint64 epoch = 3;
     {PROTOBUF_FIELD_OFFSET(Block, _impl_.epoch_), 0, 0,
     (0 | ::_fl::kFcSingular | ::_fl::kUInt64)},
-    // bytes txns = 3;
+    // bytes txns = 4;
     {PROTOBUF_FIELD_OFFSET(Block, _impl_.txns_), 0, 0,
     (0 | ::_fl::kFcSingular | ::_fl::kBytes | ::_fl::kRepAString)},
   }},
@@ -337,23 +402,30 @@ const ::_pbi::TcParseTable<2, 3, 0, 0, 2> Block::_table_ = {
   ::uint32_t cached_has_bits = 0;
   (void)cached_has_bits;
 
-  // bytes phash = 1;
-  if (!this->_internal_phash().empty()) {
-    const std::string& _s = this->_internal_phash();
-    target = stream->WriteBytesMaybeAliased(1, _s, target);
+  // uint64 parent = 1;
+  if (this->_internal_parent() != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteUInt64ToArray(
+        1, this->_internal_parent(), target);
   }
 
-  // uint64 epoch = 2;
+  // bytes phash = 2;
+  if (!this->_internal_phash().empty()) {
+    const std::string& _s = this->_internal_phash();
+    target = stream->WriteBytesMaybeAliased(2, _s, target);
+  }
+
+  // uint64 epoch = 3;
   if (this->_internal_epoch() != 0) {
     target = stream->EnsureSpace(target);
     target = ::_pbi::WireFormatLite::WriteUInt64ToArray(
-        2, this->_internal_epoch(), target);
+        3, this->_internal_epoch(), target);
   }
 
-  // bytes txns = 3;
+  // bytes txns = 4;
   if (!this->_internal_txns().empty()) {
     const std::string& _s = this->_internal_txns();
-    target = stream->WriteBytesMaybeAliased(3, _s, target);
+    target = stream->WriteBytesMaybeAliased(4, _s, target);
   }
 
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
@@ -373,19 +445,25 @@ const ::_pbi::TcParseTable<2, 3, 0, 0, 2> Block::_table_ = {
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
-  // bytes phash = 1;
+  // bytes phash = 2;
   if (!this->_internal_phash().empty()) {
     total_size += 1 + ::google::protobuf::internal::WireFormatLite::BytesSize(
                                     this->_internal_phash());
   }
 
-  // bytes txns = 3;
+  // bytes txns = 4;
   if (!this->_internal_txns().empty()) {
     total_size += 1 + ::google::protobuf::internal::WireFormatLite::BytesSize(
                                     this->_internal_txns());
   }
 
-  // uint64 epoch = 2;
+  // uint64 parent = 1;
+  if (this->_internal_parent() != 0) {
+    total_size += ::_pbi::WireFormatLite::UInt64SizePlusOne(
+        this->_internal_parent());
+  }
+
+  // uint64 epoch = 3;
   if (this->_internal_epoch() != 0) {
     total_size += ::_pbi::WireFormatLite::UInt64SizePlusOne(
         this->_internal_epoch());
@@ -416,6 +494,9 @@ void Block::MergeImpl(::google::protobuf::Message& to_msg, const ::google::proto
   if (!from._internal_txns().empty()) {
     _this->_internal_set_txns(from._internal_txns());
   }
+  if (from._internal_parent() != 0) {
+    _this->_internal_set_parent(from._internal_parent());
+  }
   if (from._internal_epoch() != 0) {
     _this->_internal_set_epoch(from._internal_epoch());
   }
@@ -443,7 +524,12 @@ void Block::InternalSwap(Block* PROTOBUF_RESTRICT other) {
   _internal_metadata_.InternalSwap(&other->_internal_metadata_);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.phash_, &other->_impl_.phash_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.txns_, &other->_impl_.txns_, arena);
-        swap(_impl_.epoch_, other->_impl_.epoch_);
+  ::google::protobuf::internal::memswap<
+      PROTOBUF_FIELD_OFFSET(Block, _impl_.epoch_)
+      + sizeof(Block::_impl_.epoch_)
+      - PROTOBUF_FIELD_OFFSET(Block, _impl_.parent_)>(
+          reinterpret_cast<char*>(&_impl_.parent_),
+          reinterpret_cast<char*>(&other->_impl_.parent_));
 }
 
 ::google::protobuf::Metadata Block::GetMetadata() const {
@@ -455,18 +541,8 @@ void Block::InternalSwap(Block* PROTOBUF_RESTRICT other) {
 
 class Vote::_Internal {
  public:
-  using HasBits = decltype(std::declval<Vote>()._impl_._has_bits_);
-  static constexpr ::int32_t kHasBitsOffset =
-    8 * PROTOBUF_FIELD_OFFSET(Vote, _impl_._has_bits_);
-  static const ::Block& block(const Vote* msg);
-  static void set_has_block(HasBits* has_bits) {
-    (*has_bits)[0] |= 1u;
-  }
 };
 
-const ::Block& Vote::_Internal::block(const Vote* msg) {
-  return *msg->_impl_.block_;
-}
 Vote::Vote(::google::protobuf::Arena* arena)
     : ::google::protobuf::Message(arena) {
   SharedCtor(arena);
@@ -475,9 +551,9 @@ Vote::Vote(::google::protobuf::Arena* arena)
 inline PROTOBUF_NDEBUG_INLINE Vote::Impl_::Impl_(
     ::google::protobuf::internal::InternalVisibility visibility, ::google::protobuf::Arena* arena,
     const Impl_& from)
-      : _has_bits_{from._has_bits_},
-        _cached_size_{0},
-        signature_(arena, from.signature_) {}
+      : signature_(arena, from.signature_),
+        hash_(arena, from.hash_),
+        _cached_size_{0} {}
 
 Vote::Vote(
     ::google::protobuf::Arena* arena,
@@ -488,27 +564,30 @@ Vote::Vote(
   _internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
       from._internal_metadata_);
   new (&_impl_) Impl_(internal_visibility(), arena, from._impl_);
-  ::uint32_t cached_has_bits = _impl_._has_bits_[0];
-  _impl_.block_ = (cached_has_bits & 0x00000001u)
-                ? CreateMaybeMessage<::Block>(arena, *from._impl_.block_)
-                : nullptr;
-  _impl_.node_ = from._impl_.node_;
+  ::memcpy(reinterpret_cast<char *>(&_impl_) +
+               offsetof(Impl_, parent_),
+           reinterpret_cast<const char *>(&from._impl_) +
+               offsetof(Impl_, parent_),
+           offsetof(Impl_, node_) -
+               offsetof(Impl_, parent_) +
+               sizeof(Impl_::node_));
 
   // @@protoc_insertion_point(copy_constructor:Vote)
 }
 inline PROTOBUF_NDEBUG_INLINE Vote::Impl_::Impl_(
     ::google::protobuf::internal::InternalVisibility visibility,
     ::google::protobuf::Arena* arena)
-      : _cached_size_{0},
-        signature_(arena) {}
+      : signature_(arena),
+        hash_(arena),
+        _cached_size_{0} {}
 
 inline void Vote::SharedCtor(::_pb::Arena* arena) {
   new (&_impl_) Impl_(internal_visibility(), arena);
   ::memset(reinterpret_cast<char *>(&_impl_) +
-               offsetof(Impl_, block_),
+               offsetof(Impl_, parent_),
            0,
            offsetof(Impl_, node_) -
-               offsetof(Impl_, block_) +
+               offsetof(Impl_, parent_) +
                sizeof(Impl_::node_));
 }
 Vote::~Vote() {
@@ -519,7 +598,7 @@ Vote::~Vote() {
 inline void Vote::SharedDtor() {
   ABSL_DCHECK(GetArena() == nullptr);
   _impl_.signature_.Destroy();
-  delete _impl_.block_;
+  _impl_.hash_.Destroy();
   _impl_.~Impl_();
 }
 
@@ -531,13 +610,10 @@ PROTOBUF_NOINLINE void Vote::Clear() {
   (void) cached_has_bits;
 
   _impl_.signature_.ClearToEmpty();
-  cached_has_bits = _impl_._has_bits_[0];
-  if (cached_has_bits & 0x00000001u) {
-    ABSL_DCHECK(_impl_.block_ != nullptr);
-    _impl_.block_->Clear();
-  }
-  _impl_.node_ = 0u;
-  _impl_._has_bits_.Clear();
+  _impl_.hash_.ClearToEmpty();
+  ::memset(&_impl_.parent_, 0, static_cast<::size_t>(
+      reinterpret_cast<char*>(&_impl_.node_) -
+      reinterpret_cast<char*>(&_impl_.parent_)) + sizeof(_impl_.node_));
   _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
 }
 
@@ -549,17 +625,17 @@ const char* Vote::_InternalParse(
 
 
 PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
-const ::_pbi::TcParseTable<2, 3, 1, 0, 2> Vote::_table_ = {
+const ::_pbi::TcParseTable<3, 5, 0, 0, 2> Vote::_table_ = {
   {
-    PROTOBUF_FIELD_OFFSET(Vote, _impl_._has_bits_),
+    0,  // no _has_bits_
     0, // no _extensions_
-    3, 24,  // max_field_number, fast_idx_mask
+    5, 56,  // max_field_number, fast_idx_mask
     offsetof(decltype(_table_), field_lookup_table),
-    4294967288,  // skipmap
+    4294967264,  // skipmap
     offsetof(decltype(_table_), field_entries),
-    3,  // num_field_entries
-    1,  // num_aux_entries
-    offsetof(decltype(_table_), aux_entries),
+    5,  // num_field_entries
+    0,  // num_aux_entries
+    offsetof(decltype(_table_), field_names),  // no aux_entries
     &_Vote_default_instance_._instance,
     ::_pbi::TcParser::GenericFallback,  // fallback
   }, {{
@@ -570,24 +646,38 @@ const ::_pbi::TcParseTable<2, 3, 1, 0, 2> Vote::_table_ = {
     // bytes signature = 2;
     {::_pbi::TcParser::FastBS1,
      {18, 63, 0, PROTOBUF_FIELD_OFFSET(Vote, _impl_.signature_)}},
-    // .Block block = 3;
-    {::_pbi::TcParser::FastMtS1,
-     {26, 0, 0, PROTOBUF_FIELD_OFFSET(Vote, _impl_.block_)}},
+    // uint64 parent = 3;
+    {::_pbi::TcParser::SingularVarintNoZag1<::uint64_t, offsetof(Vote, _impl_.parent_), 63>(),
+     {24, 63, 0, PROTOBUF_FIELD_OFFSET(Vote, _impl_.parent_)}},
+    // uint64 epoch = 4;
+    {::_pbi::TcParser::SingularVarintNoZag1<::uint64_t, offsetof(Vote, _impl_.epoch_), 63>(),
+     {32, 63, 0, PROTOBUF_FIELD_OFFSET(Vote, _impl_.epoch_)}},
+    // bytes hash = 5;
+    {::_pbi::TcParser::FastBS1,
+     {42, 63, 0, PROTOBUF_FIELD_OFFSET(Vote, _impl_.hash_)}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
   }}, {{
     65535, 65535
   }}, {{
     // uint32 node = 1;
-    {PROTOBUF_FIELD_OFFSET(Vote, _impl_.node_), -1, 0,
+    {PROTOBUF_FIELD_OFFSET(Vote, _impl_.node_), 0, 0,
     (0 | ::_fl::kFcSingular | ::_fl::kUInt32)},
     // bytes signature = 2;
-    {PROTOBUF_FIELD_OFFSET(Vote, _impl_.signature_), -1, 0,
+    {PROTOBUF_FIELD_OFFSET(Vote, _impl_.signature_), 0, 0,
     (0 | ::_fl::kFcSingular | ::_fl::kBytes | ::_fl::kRepAString)},
-    // .Block block = 3;
-    {PROTOBUF_FIELD_OFFSET(Vote, _impl_.block_), _Internal::kHasBitsOffset + 0, 0,
-    (0 | ::_fl::kFcOptional | ::_fl::kMessage | ::_fl::kTvTable)},
-  }}, {{
-    {::_pbi::TcParser::GetTable<::Block>()},
-  }}, {{
+    // uint64 parent = 3;
+    {PROTOBUF_FIELD_OFFSET(Vote, _impl_.parent_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUInt64)},
+    // uint64 epoch = 4;
+    {PROTOBUF_FIELD_OFFSET(Vote, _impl_.epoch_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUInt64)},
+    // bytes hash = 5;
+    {PROTOBUF_FIELD_OFFSET(Vote, _impl_.hash_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kBytes | ::_fl::kRepAString)},
+  }},
+  // no aux_entries
+  {{
   }},
 };
 
@@ -611,12 +701,24 @@ const ::_pbi::TcParseTable<2, 3, 1, 0, 2> Vote::_table_ = {
     target = stream->WriteBytesMaybeAliased(2, _s, target);
   }
 
-  cached_has_bits = _impl_._has_bits_[0];
-  // .Block block = 3;
-  if (cached_has_bits & 0x00000001u) {
-    target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
-        3, _Internal::block(this),
-        _Internal::block(this).GetCachedSize(), target, stream);
+  // uint64 parent = 3;
+  if (this->_internal_parent() != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteUInt64ToArray(
+        3, this->_internal_parent(), target);
+  }
+
+  // uint64 epoch = 4;
+  if (this->_internal_epoch() != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteUInt64ToArray(
+        4, this->_internal_epoch(), target);
+  }
+
+  // bytes hash = 5;
+  if (!this->_internal_hash().empty()) {
+    const std::string& _s = this->_internal_hash();
+    target = stream->WriteBytesMaybeAliased(5, _s, target);
   }
 
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
@@ -642,11 +744,22 @@ const ::_pbi::TcParseTable<2, 3, 1, 0, 2> Vote::_table_ = {
                                     this->_internal_signature());
   }
 
-  // .Block block = 3;
-  cached_has_bits = _impl_._has_bits_[0];
-  if (cached_has_bits & 0x00000001u) {
-    total_size +=
-        1 + ::google::protobuf::internal::WireFormatLite::MessageSize(*_impl_.block_);
+  // bytes hash = 5;
+  if (!this->_internal_hash().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::BytesSize(
+                                    this->_internal_hash());
+  }
+
+  // uint64 parent = 3;
+  if (this->_internal_parent() != 0) {
+    total_size += ::_pbi::WireFormatLite::UInt64SizePlusOne(
+        this->_internal_parent());
+  }
+
+  // uint64 epoch = 4;
+  if (this->_internal_epoch() != 0) {
+    total_size += ::_pbi::WireFormatLite::UInt64SizePlusOne(
+        this->_internal_epoch());
   }
 
   // uint32 node = 1;
@@ -677,9 +790,14 @@ void Vote::MergeImpl(::google::protobuf::Message& to_msg, const ::google::protob
   if (!from._internal_signature().empty()) {
     _this->_internal_set_signature(from._internal_signature());
   }
-  if ((from._impl_._has_bits_[0] & 0x00000001u) != 0) {
-    _this->_internal_mutable_block()->::Block::MergeFrom(
-        from._internal_block());
+  if (!from._internal_hash().empty()) {
+    _this->_internal_set_hash(from._internal_hash());
+  }
+  if (from._internal_parent() != 0) {
+    _this->_internal_set_parent(from._internal_parent());
+  }
+  if (from._internal_epoch() != 0) {
+    _this->_internal_set_epoch(from._internal_epoch());
   }
   if (from._internal_node() != 0) {
     _this->_internal_set_node(from._internal_node());
@@ -706,20 +824,290 @@ void Vote::InternalSwap(Vote* PROTOBUF_RESTRICT other) {
   auto* arena = GetArena();
   ABSL_DCHECK_EQ(arena, other->GetArena());
   _internal_metadata_.InternalSwap(&other->_internal_metadata_);
-  swap(_impl_._has_bits_[0], other->_impl_._has_bits_[0]);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.signature_, &other->_impl_.signature_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.hash_, &other->_impl_.hash_, arena);
   ::google::protobuf::internal::memswap<
       PROTOBUF_FIELD_OFFSET(Vote, _impl_.node_)
       + sizeof(Vote::_impl_.node_)
-      - PROTOBUF_FIELD_OFFSET(Vote, _impl_.block_)>(
-          reinterpret_cast<char*>(&_impl_.block_),
-          reinterpret_cast<char*>(&other->_impl_.block_));
+      - PROTOBUF_FIELD_OFFSET(Vote, _impl_.parent_)>(
+          reinterpret_cast<char*>(&_impl_.parent_),
+          reinterpret_cast<char*>(&other->_impl_.parent_));
 }
 
 ::google::protobuf::Metadata Vote::GetMetadata() const {
   return ::_pbi::AssignDescriptors(
       &descriptor_table_streamlet_2eproto_getter, &descriptor_table_streamlet_2eproto_once,
       file_level_metadata_streamlet_2eproto[2]);
+}
+// ===================================================================
+
+class Proposal::_Internal {
+ public:
+  using HasBits = decltype(std::declval<Proposal>()._impl_._has_bits_);
+  static constexpr ::int32_t kHasBitsOffset =
+    8 * PROTOBUF_FIELD_OFFSET(Proposal, _impl_._has_bits_);
+  static const ::Block& block(const Proposal* msg);
+  static void set_has_block(HasBits* has_bits) {
+    (*has_bits)[0] |= 1u;
+  }
+};
+
+const ::Block& Proposal::_Internal::block(const Proposal* msg) {
+  return *msg->_impl_.block_;
+}
+Proposal::Proposal(::google::protobuf::Arena* arena)
+    : ::google::protobuf::Message(arena) {
+  SharedCtor(arena);
+  // @@protoc_insertion_point(arena_constructor:Proposal)
+}
+inline PROTOBUF_NDEBUG_INLINE Proposal::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility, ::google::protobuf::Arena* arena,
+    const Impl_& from)
+      : _has_bits_{from._has_bits_},
+        _cached_size_{0},
+        signature_(arena, from.signature_) {}
+
+Proposal::Proposal(
+    ::google::protobuf::Arena* arena,
+    const Proposal& from)
+    : ::google::protobuf::Message(arena) {
+  Proposal* const _this = this;
+  (void)_this;
+  _internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
+      from._internal_metadata_);
+  new (&_impl_) Impl_(internal_visibility(), arena, from._impl_);
+  ::uint32_t cached_has_bits = _impl_._has_bits_[0];
+  _impl_.block_ = (cached_has_bits & 0x00000001u)
+                ? CreateMaybeMessage<::Block>(arena, *from._impl_.block_)
+                : nullptr;
+  _impl_.node_ = from._impl_.node_;
+
+  // @@protoc_insertion_point(copy_constructor:Proposal)
+}
+inline PROTOBUF_NDEBUG_INLINE Proposal::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility,
+    ::google::protobuf::Arena* arena)
+      : _cached_size_{0},
+        signature_(arena) {}
+
+inline void Proposal::SharedCtor(::_pb::Arena* arena) {
+  new (&_impl_) Impl_(internal_visibility(), arena);
+  ::memset(reinterpret_cast<char *>(&_impl_) +
+               offsetof(Impl_, block_),
+           0,
+           offsetof(Impl_, node_) -
+               offsetof(Impl_, block_) +
+               sizeof(Impl_::node_));
+}
+Proposal::~Proposal() {
+  // @@protoc_insertion_point(destructor:Proposal)
+  _internal_metadata_.Delete<::google::protobuf::UnknownFieldSet>();
+  SharedDtor();
+}
+inline void Proposal::SharedDtor() {
+  ABSL_DCHECK(GetArena() == nullptr);
+  _impl_.signature_.Destroy();
+  delete _impl_.block_;
+  _impl_.~Impl_();
+}
+
+PROTOBUF_NOINLINE void Proposal::Clear() {
+// @@protoc_insertion_point(message_clear_start:Proposal)
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  _impl_.signature_.ClearToEmpty();
+  cached_has_bits = _impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000001u) {
+    ABSL_DCHECK(_impl_.block_ != nullptr);
+    _impl_.block_->Clear();
+  }
+  _impl_.node_ = 0u;
+  _impl_._has_bits_.Clear();
+  _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
+}
+
+const char* Proposal::_InternalParse(
+    const char* ptr, ::_pbi::ParseContext* ctx) {
+  ptr = ::_pbi::TcParser::ParseLoop(this, ptr, ctx, &_table_.header);
+  return ptr;
+}
+
+
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
+const ::_pbi::TcParseTable<2, 3, 1, 0, 2> Proposal::_table_ = {
+  {
+    PROTOBUF_FIELD_OFFSET(Proposal, _impl_._has_bits_),
+    0, // no _extensions_
+    3, 24,  // max_field_number, fast_idx_mask
+    offsetof(decltype(_table_), field_lookup_table),
+    4294967288,  // skipmap
+    offsetof(decltype(_table_), field_entries),
+    3,  // num_field_entries
+    1,  // num_aux_entries
+    offsetof(decltype(_table_), aux_entries),
+    &_Proposal_default_instance_._instance,
+    ::_pbi::TcParser::GenericFallback,  // fallback
+  }, {{
+    {::_pbi::TcParser::MiniParse, {}},
+    // uint32 node = 1;
+    {::_pbi::TcParser::SingularVarintNoZag1<::uint32_t, offsetof(Proposal, _impl_.node_), 63>(),
+     {8, 63, 0, PROTOBUF_FIELD_OFFSET(Proposal, _impl_.node_)}},
+    // bytes signature = 2;
+    {::_pbi::TcParser::FastBS1,
+     {18, 63, 0, PROTOBUF_FIELD_OFFSET(Proposal, _impl_.signature_)}},
+    // .Block block = 3;
+    {::_pbi::TcParser::FastMtS1,
+     {26, 0, 0, PROTOBUF_FIELD_OFFSET(Proposal, _impl_.block_)}},
+  }}, {{
+    65535, 65535
+  }}, {{
+    // uint32 node = 1;
+    {PROTOBUF_FIELD_OFFSET(Proposal, _impl_.node_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUInt32)},
+    // bytes signature = 2;
+    {PROTOBUF_FIELD_OFFSET(Proposal, _impl_.signature_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kBytes | ::_fl::kRepAString)},
+    // .Block block = 3;
+    {PROTOBUF_FIELD_OFFSET(Proposal, _impl_.block_), _Internal::kHasBitsOffset + 0, 0,
+    (0 | ::_fl::kFcOptional | ::_fl::kMessage | ::_fl::kTvTable)},
+  }}, {{
+    {::_pbi::TcParser::GetTable<::Block>()},
+  }}, {{
+  }},
+};
+
+::uint8_t* Proposal::_InternalSerialize(
+    ::uint8_t* target,
+    ::google::protobuf::io::EpsCopyOutputStream* stream) const {
+  // @@protoc_insertion_point(serialize_to_array_start:Proposal)
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  // uint32 node = 1;
+  if (this->_internal_node() != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteUInt32ToArray(
+        1, this->_internal_node(), target);
+  }
+
+  // bytes signature = 2;
+  if (!this->_internal_signature().empty()) {
+    const std::string& _s = this->_internal_signature();
+    target = stream->WriteBytesMaybeAliased(2, _s, target);
+  }
+
+  cached_has_bits = _impl_._has_bits_[0];
+  // .Block block = 3;
+  if (cached_has_bits & 0x00000001u) {
+    target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+        3, _Internal::block(this),
+        _Internal::block(this).GetCachedSize(), target, stream);
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    target =
+        ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
+            _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance), target, stream);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:Proposal)
+  return target;
+}
+
+::size_t Proposal::ByteSizeLong() const {
+// @@protoc_insertion_point(message_byte_size_start:Proposal)
+  ::size_t total_size = 0;
+
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  // bytes signature = 2;
+  if (!this->_internal_signature().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::BytesSize(
+                                    this->_internal_signature());
+  }
+
+  // .Block block = 3;
+  cached_has_bits = _impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000001u) {
+    total_size +=
+        1 + ::google::protobuf::internal::WireFormatLite::MessageSize(*_impl_.block_);
+  }
+
+  // uint32 node = 1;
+  if (this->_internal_node() != 0) {
+    total_size += ::_pbi::WireFormatLite::UInt32SizePlusOne(
+        this->_internal_node());
+  }
+
+  return MaybeComputeUnknownFieldsSize(total_size, &_impl_._cached_size_);
+}
+
+const ::google::protobuf::Message::ClassData Proposal::_class_data_ = {
+    Proposal::MergeImpl,
+    nullptr,  // OnDemandRegisterArenaDtor
+};
+const ::google::protobuf::Message::ClassData* Proposal::GetClassData() const {
+  return &_class_data_;
+}
+
+void Proposal::MergeImpl(::google::protobuf::Message& to_msg, const ::google::protobuf::Message& from_msg) {
+  auto* const _this = static_cast<Proposal*>(&to_msg);
+  auto& from = static_cast<const Proposal&>(from_msg);
+  // @@protoc_insertion_point(class_specific_merge_from_start:Proposal)
+  ABSL_DCHECK_NE(&from, _this);
+  ::uint32_t cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  if (!from._internal_signature().empty()) {
+    _this->_internal_set_signature(from._internal_signature());
+  }
+  if ((from._impl_._has_bits_[0] & 0x00000001u) != 0) {
+    _this->_internal_mutable_block()->::Block::MergeFrom(
+        from._internal_block());
+  }
+  if (from._internal_node() != 0) {
+    _this->_internal_set_node(from._internal_node());
+  }
+  _this->_internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(from._internal_metadata_);
+}
+
+void Proposal::CopyFrom(const Proposal& from) {
+// @@protoc_insertion_point(class_specific_copy_from_start:Proposal)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+PROTOBUF_NOINLINE bool Proposal::IsInitialized() const {
+  return true;
+}
+
+::_pbi::CachedSize* Proposal::AccessCachedSize() const {
+  return &_impl_._cached_size_;
+}
+void Proposal::InternalSwap(Proposal* PROTOBUF_RESTRICT other) {
+  using std::swap;
+  auto* arena = GetArena();
+  ABSL_DCHECK_EQ(arena, other->GetArena());
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  swap(_impl_._has_bits_[0], other->_impl_._has_bits_[0]);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.signature_, &other->_impl_.signature_, arena);
+  ::google::protobuf::internal::memswap<
+      PROTOBUF_FIELD_OFFSET(Proposal, _impl_.node_)
+      + sizeof(Proposal::_impl_.node_)
+      - PROTOBUF_FIELD_OFFSET(Proposal, _impl_.block_)>(
+          reinterpret_cast<char*>(&_impl_.block_),
+          reinterpret_cast<char*>(&other->_impl_.block_));
+}
+
+::google::protobuf::Metadata Proposal::GetMetadata() const {
+  return ::_pbi::AssignDescriptors(
+      &descriptor_table_streamlet_2eproto_getter, &descriptor_table_streamlet_2eproto_once,
+      file_level_metadata_streamlet_2eproto[3]);
 }
 // @@protoc_insertion_point(namespace_scope)
 namespace google {

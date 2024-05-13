@@ -1,7 +1,9 @@
+#include "utils.h"
+
 #include <iomanip>
 #include <fstream>
 #include <sstream>
-#include <chrono>
+#include <cstring>
 
 int sync_time(const char *utc_start, std::chrono::system_clock::time_point &tpoint) {
     static_assert(std::chrono::system_clock::period::num == 1
@@ -41,6 +43,77 @@ int sync_time(const char *utc_start, std::chrono::system_clock::time_point &tpoi
     tpoint = std::chrono::system_clock::from_time_t(t_now) + std::chrono::seconds(sync_sec - now_sec);
 
     return 0;
+}
+
+int load_config(const std::string &file, uint32_t id, std::vector<Peer> &peers, Key &priv) {
+    std::ifstream f{file};
+    char *line = new char[1024];
+    int status = 0;
+    uint32_t count = 0;
+    char *space;
+    char *prev;
+
+    if (!f.is_open()) {
+        return 1;
+    }
+
+    while (f.getline(line, 1024)) {
+        Peer p;
+
+        // Read blank line
+        if (f.gcount() == 1) {
+            break;
+        }
+
+        // Extract address
+        space = strchr(line, ' ');
+
+        if (!space) {
+            status = 2;
+            break;
+        }
+
+        p.addr = std::string{line, space};
+
+        // Extract public key
+        do {
+            prev = space;
+            space = strchr(prev, ' ');
+        } while (space && (space - prev == 1));
+        
+        if (!space || space - (prev + 1) != 32) {
+            status = 2;
+            break;
+        }
+
+        // prev is last space so the key begins at prev + 1
+        memcpy(p.key.data(), prev + 1, space - (prev + 1));
+
+        // Private key, make sure not malformed regardless of whether
+        // the key is extracted
+        do {
+            prev = space;
+            space = strchr(prev, ' ');
+        } while (space && (space - prev == 1));
+
+        if (strlen(prev + 1) != 32) {
+            status = 2;
+            break;
+        }
+
+        // Copy the key
+        if (count == id) {
+            memcpy(priv.data(), prev + 1, space - (prev + 1));
+        }
+
+        peers.push_back(p);
+
+        count++;
+    }
+
+    delete[] line;
+
+    return status;
 }
 
 size_t read_hexstring(uint8_t *bytes, size_t len, const std::string &str) {

@@ -2,6 +2,9 @@
 
 override CXXFLAGS += -std=c++14
 
+StreamletNodeV2: StreamletNodeV2.o NetworkInterposer.o CryptoManager.o utils.o streamlet.pb.o streamlet.grpc.pb.o
+	$(CXX) -o StreamletNodeV2 $(CXXFLAGS) -lgrpc++_unsecure -lgrpc++_reflection -lprotobuf $^
+
 protos: streamlet.pb.o streamlet.grpc.pb.o
 
 streamlet.pb.cc: streamlet.proto

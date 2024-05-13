@@ -1,4 +1,7 @@
+#pragma once
+
 #include <chrono>
+#include "structs.h"
 
 /*
  * Parses utc_start, which is expected to be a string of HH:MM:SS representing
@@ -21,3 +24,12 @@ size_t read_hexstring(uint8_t *bytes, size_t len, const std::string &str);
  * contiguously to str. str is resized to have length len and overwritten.
  */
 void write_hexstring(std::string &str, const uint8_t *bytes, size_t len);
+
+/*
+ * Reads a file containing lines of the form
+ *     node_address public_key private_key
+ * filling the peers vector with the address and public key information
+ * in the same order as they appear in the file. id is the node id for
+ * which the private key should be extracted into priv.
+ */
+int load_config(const char *file, uint32_t id, std::vector<Peer> &peers, Key &priv);

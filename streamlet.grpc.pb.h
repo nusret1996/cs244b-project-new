@@ -46,11 +46,11 @@ class Streamlet final {
     // but explicit code path to verify the leader and epoch and
     // to facilitate implementing and testing different
     // interpretations of the protocol description
-    virtual ::grpc::Status ProposeBlock(::grpc::ClientContext* context, const ::Vote& request, ::Response* response) = 0;
-    std::unique_ptr< ::grpc::ClientAsyncResponseReaderInterface< ::Response>> AsyncProposeBlock(::grpc::ClientContext* context, const ::Vote& request, ::grpc::CompletionQueue* cq) {
+    virtual ::grpc::Status ProposeBlock(::grpc::ClientContext* context, const ::Proposal& request, ::Response* response) = 0;
+    std::unique_ptr< ::grpc::ClientAsyncResponseReaderInterface< ::Response>> AsyncProposeBlock(::grpc::ClientContext* context, const ::Proposal& request, ::grpc::CompletionQueue* cq) {
       return std::unique_ptr< ::grpc::ClientAsyncResponseReaderInterface< ::Response>>(AsyncProposeBlockRaw(context, request, cq));
     }
-    std::unique_ptr< ::grpc::ClientAsyncResponseReaderInterface< ::Response>> PrepareAsyncProposeBlock(::grpc::ClientContext* context, const ::Vote& request, ::grpc::CompletionQueue* cq) {
+    std::unique_ptr< ::grpc::ClientAsyncResponseReaderInterface< ::Response>> PrepareAsyncProposeBlock(::grpc::ClientContext* context, const ::Proposal& request, ::grpc::CompletionQueue* cq) {
       return std::unique_ptr< ::grpc::ClientAsyncResponseReaderInterface< ::Response>>(PrepareAsyncProposeBlockRaw(context, request, cq));
     }
     class async_interface {
@@ -63,8 +63,8 @@ class Streamlet final {
       // but explicit code path to verify the leader and epoch and
       // to facilitate implementing and testing different
       // interpretations of the protocol description
-      virtual void ProposeBlock(::grpc::ClientContext* context, const ::Vote* request, ::Response* response, std::function<void(::grpc::Status)>) = 0;
-      virtual void ProposeBlock(::grpc::ClientContext* context, const ::Vote* request, ::Response* response, ::grpc::ClientUnaryReactor* reactor) = 0;
+      virtual void ProposeBlock(::grpc::ClientContext* context, const ::Proposal* request, ::Response* response, std::function<void(::grpc::Status)>) = 0;
+      virtual void ProposeBlock(::grpc::ClientContext* context, const ::Proposal* request, ::Response* response, ::grpc::ClientUnaryReactor* reactor) = 0;
     };
     typedef class async_interface experimental_async_interface;
     virtual class async_interface* async() { return nullptr; }
@@ -72,8 +72,8 @@ class Streamlet final {
    private:
     virtual ::grpc::ClientAsyncResponseReaderInterface< ::Response>* AsyncNotifyVoteRaw(::grpc::ClientContext* context, const ::Vote& request, ::grpc::CompletionQueue* cq) = 0;
     virtual ::grpc::ClientAsyncResponseReaderInterface< ::Response>* PrepareAsyncNotifyVoteRaw(::grpc::ClientContext* context, const ::Vote& request, ::grpc::CompletionQueue* cq) = 0;
-    virtual ::grpc::ClientAsyncResponseReaderInterface< ::Response>* AsyncProposeBlockRaw(::grpc::ClientContext* context, const ::Vote& request, ::grpc::CompletionQueue* cq) = 0;
-    virtual ::grpc::ClientAsyncResponseReaderInterface< ::Response>* PrepareAsyncProposeBlockRaw(::grpc::ClientContext* context, const ::Vote& request, ::grpc::CompletionQueue* cq) = 0;
+    virtual ::grpc::ClientAsyncResponseReaderInterface< ::Response>* AsyncProposeBlockRaw(::grpc::ClientContext* context, const ::Proposal& request, ::grpc::CompletionQueue* cq) = 0;
+    virtual ::grpc::ClientAsyncResponseReaderInterface< ::Response>* PrepareAsyncProposeBlockRaw(::grpc::ClientContext* context, const ::Proposal& request, ::grpc::CompletionQueue* cq) = 0;
   };
   class Stub final : public StubInterface {
    public:
@@ -85,11 +85,11 @@ class Streamlet final {
     std::unique_ptr< ::grpc::ClientAsyncResponseReader< ::Response>> PrepareAsyncNotifyVote(::grpc::ClientContext* context, const ::Vote& request, ::grpc::CompletionQueue* cq) {
       return std::unique_ptr< ::grpc::ClientAsyncResponseReader< ::Response>>(PrepareAsyncNotifyVoteRaw(context, request, cq));
     }
-    ::grpc::Status ProposeBlock(::grpc::ClientContext* context, const ::Vote& request, ::Response* response) override;
-    std::unique_ptr< ::grpc::ClientAsyncResponseReader< ::Response>> AsyncProposeBlock(::grpc::ClientContext* context, const ::Vote& request, ::grpc::CompletionQueue* cq) {
+    ::grpc::Status ProposeBlock(::grpc::ClientContext* context, const ::Proposal& request, ::Response* response) override;
+    std::unique_ptr< ::grpc::ClientAsyncResponseReader< ::Response>> AsyncProposeBlock(::grpc::ClientContext* context, const ::Proposal& request, ::grpc::CompletionQueue* cq) {
       return std::unique_ptr< ::grpc::ClientAsyncResponseReader< ::Response>>(AsyncProposeBlockRaw(context, request, cq));
     }
-    std::unique_ptr< ::grpc::ClientAsyncResponseReader< ::Response>> PrepareAsyncProposeBlock(::grpc::ClientContext* context, const ::Vote& request, ::grpc::CompletionQueue* cq) {
+    std::unique_ptr< ::grpc::ClientAsyncResponseReader< ::Response>> PrepareAsyncProposeBlock(::grpc::ClientContext* context, const ::Proposal& request, ::grpc::CompletionQueue* cq) {
       return std::unique_ptr< ::grpc::ClientAsyncResponseReader< ::Response>>(PrepareAsyncProposeBlockRaw(context, request, cq));
     }
     class async final :
@@ -97,8 +97,8 @@ class Streamlet final {
      public:
       void NotifyVote(::grpc::ClientContext* context, const ::Vote* request, ::Response* response, std::function<void(::grpc::Status)>) override;
       void NotifyVote(::grpc::ClientContext* context, const ::Vote* request, ::Response* response, ::grpc::ClientUnaryReactor* reactor) override;
-      void ProposeBlock(::grpc::ClientContext* context, const ::Vote* request, ::Response* response, std::function<void(::grpc::Status)>) override;
-      void ProposeBlock(::grpc::ClientContext* context, const ::Vote* request, ::Response* response, ::grpc::ClientUnaryReactor* reactor) override;
+      void ProposeBlock(::grpc::ClientContext* context, const ::Proposal* request, ::Response* response, std::function<void(::grpc::Status)>) override;
+      void ProposeBlock(::grpc::ClientContext* context, const ::Proposal* request, ::Response* response, ::grpc::ClientUnaryReactor* reactor) override;
      private:
       friend class Stub;
       explicit async(Stub* stub): stub_(stub) { }
@@ -112,8 +112,8 @@ class Streamlet final {
     class async async_stub_{this};
     ::grpc::ClientAsyncResponseReader< ::Response>* AsyncNotifyVoteRaw(::grpc::ClientContext* context, const ::Vote& request, ::grpc::CompletionQueue* cq) override;
     ::grpc::ClientAsyncResponseReader< ::Response>* PrepareAsyncNotifyVoteRaw(::grpc::ClientContext* context, const ::Vote& request, ::grpc::CompletionQueue* cq) override;
-    ::grpc::ClientAsyncResponseReader< ::Response>* AsyncProposeBlockRaw(::grpc::ClientContext* context, const ::Vote& request, ::grpc::CompletionQueue* cq) override;
-    ::grpc::ClientAsyncResponseReader< ::Response>* PrepareAsyncProposeBlockRaw(::grpc::ClientContext* context, const ::Vote& request, ::grpc::CompletionQueue* cq) override;
+    ::grpc::ClientAsyncResponseReader< ::Response>* AsyncProposeBlockRaw(::grpc::ClientContext* context, const ::Proposal& request, ::grpc::CompletionQueue* cq) override;
+    ::grpc::ClientAsyncResponseReader< ::Response>* PrepareAsyncProposeBlockRaw(::grpc::ClientContext* context, const ::Proposal& request, ::grpc::CompletionQueue* cq) override;
     const ::grpc::internal::RpcMethod rpcmethod_NotifyVote_;
     const ::grpc::internal::RpcMethod rpcmethod_ProposeBlock_;
   };
@@ -129,7 +129,7 @@ class Streamlet final {
     // but explicit code path to verify the leader and epoch and
     // to facilitate implementing and testing different
     // interpretations of the protocol description
-    virtual ::grpc::Status ProposeBlock(::grpc::ServerContext* context, const ::Vote* request, ::Response* response);
+    virtual ::grpc::Status ProposeBlock(::grpc::ServerContext* context, const ::Proposal* request, ::Response* response);
   };
   template <class BaseClass>
   class WithAsyncMethod_NotifyVote : public BaseClass {
@@ -163,11 +163,11 @@ class Streamlet final {
       BaseClassMustBeDerivedFromService(this);
     }
     // disable synchronous version of this method
-    ::grpc::Status ProposeBlock(::grpc::ServerContext* /*context*/, const ::Vote* /*request*/, ::Response* /*response*/) override {
+    ::grpc::Status ProposeBlock(::grpc::ServerContext* /*context*/, const ::Proposal* /*request*/, ::Response* /*response*/) override {
       abort();
       return ::grpc::Status(::grpc::StatusCode::UNIMPLEMENTED, "");
     }
-    void RequestProposeBlock(::grpc::ServerContext* context, ::Vote* request, ::grpc::ServerAsyncResponseWriter< ::Response>* response, ::grpc::CompletionQueue* new_call_cq, ::grpc::ServerCompletionQueue* notification_cq, void *tag) {
+    void RequestProposeBlock(::grpc::ServerContext* context, ::Proposal* request, ::grpc::ServerAsyncResponseWriter< ::Response>* response, ::grpc::CompletionQueue* new_call_cq, ::grpc::ServerCompletionQueue* notification_cq, void *tag) {
       ::grpc::Service::RequestAsyncUnary(1, context, request, response, new_call_cq, notification_cq, tag);
     }
   };
@@ -206,25 +206,25 @@ class Streamlet final {
    public:
     WithCallbackMethod_ProposeBlock() {
       ::grpc::Service::MarkMethodCallback(1,
-          new ::grpc::internal::CallbackUnaryHandler< ::Vote, ::Response>(
+          new ::grpc::internal::CallbackUnaryHandler< ::Proposal, ::Response>(
             [this](
-                   ::grpc::CallbackServerContext* context, const ::Vote* request, ::Response* response) { return this->ProposeBlock(context, request, response); }));}
+                   ::grpc::CallbackServerContext* context, const ::Proposal* request, ::Response* response) { return this->ProposeBlock(context, request, response); }));}
     void SetMessageAllocatorFor_ProposeBlock(
-        ::grpc::MessageAllocator< ::Vote, ::Response>* allocator) {
+        ::grpc::MessageAllocator< ::Proposal, ::Response>* allocator) {
       ::grpc::internal::MethodHandler* const handler = ::grpc::Service::GetHandler(1);
-      static_cast<::grpc::internal::CallbackUnaryHandler< ::Vote, ::Response>*>(handler)
+      static_cast<::grpc::internal::CallbackUnaryHandler< ::Proposal, ::Response>*>(handler)
               ->SetMessageAllocator(allocator);
     }
     ~WithCallbackMethod_ProposeBlock() override {
       BaseClassMustBeDerivedFromService(this);
     }
     // disable synchronous version of this method
-    ::grpc::Status ProposeBlock(::grpc::ServerContext* /*context*/, const ::Vote* /*request*/, ::Response* /*response*/) override {
+    ::grpc::Status ProposeBlock(::grpc::ServerContext* /*context*/, const ::Proposal* /*request*/, ::Response* /*response*/) override {
       abort();
       return ::grpc::Status(::grpc::StatusCode::UNIMPLEMENTED, "");
     }
     virtual ::grpc::ServerUnaryReactor* ProposeBlock(
-      ::grpc::CallbackServerContext* /*context*/, const ::Vote* /*request*/, ::Response* /*response*/)  { return nullptr; }
+      ::grpc::CallbackServerContext* /*context*/, const ::Proposal* /*request*/, ::Response* /*response*/)  { return nullptr; }
   };
   typedef WithCallbackMethod_NotifyVote<WithCallbackMethod_ProposeBlock<Service > > CallbackService;
   typedef CallbackService ExperimentalCallbackService;
@@ -257,7 +257,7 @@ class Streamlet final {
       BaseClassMustBeDerivedFromService(this);
     }
     // disable synchronous version of this method
-    ::grpc::Status ProposeBlock(::grpc::ServerContext* /*context*/, const ::Vote* /*request*/, ::Response* /*response*/) override {
+    ::grpc::Status ProposeBlock(::grpc::ServerContext* /*context*/, const ::Proposal* /*request*/, ::Response* /*response*/) override {
       abort();
       return ::grpc::Status(::grpc::StatusCode::UNIMPLEMENTED, "");
     }
@@ -294,7 +294,7 @@ class Streamlet final {
       BaseClassMustBeDerivedFromService(this);
     }
     // disable synchronous version of this method
-    ::grpc::Status ProposeBlock(::grpc::ServerContext* /*context*/, const ::Vote* /*request*/, ::Response* /*response*/) override {
+    ::grpc::Status ProposeBlock(::grpc::ServerContext* /*context*/, const ::Proposal* /*request*/, ::Response* /*response*/) override {
       abort();
       return ::grpc::Status(::grpc::StatusCode::UNIMPLEMENTED, "");
     }
@@ -339,7 +339,7 @@ class Streamlet final {
       BaseClassMustBeDerivedFromService(this);
     }
     // disable synchronous version of this method
-    ::grpc::Status ProposeBlock(::grpc::ServerContext* /*context*/, const ::Vote* /*request*/, ::Response* /*response*/) override {
+    ::grpc::Status ProposeBlock(::grpc::ServerContext* /*context*/, const ::Proposal* /*request*/, ::Response* /*response*/) override {
       abort();
       return ::grpc::Status(::grpc::StatusCode::UNIMPLEMENTED, "");
     }
@@ -381,10 +381,10 @@ class Streamlet final {
     WithStreamedUnaryMethod_ProposeBlock() {
       ::grpc::Service::MarkMethodStreamed(1,
         new ::grpc::internal::StreamedUnaryHandler<
-          ::Vote, ::Response>(
+          ::Proposal, ::Response>(
             [this](::grpc::ServerContext* context,
                    ::grpc::ServerUnaryStreamer<
-                     ::Vote, ::Response>* streamer) {
+                     ::Proposal, ::Response>* streamer) {
                        return this->StreamedProposeBlock(context,
                          streamer);
                   }));
@@ -393,12 +393,12 @@ class Streamlet final {
       BaseClassMustBeDerivedFromService(this);
     }
     // disable regular version of this method
-    ::grpc::Status ProposeBlock(::grpc::ServerContext* /*context*/, const ::Vote* /*request*/, ::Response* /*response*/) override {
+    ::grpc::Status ProposeBlock(::grpc::ServerContext* /*context*/, const ::Proposal* /*request*/, ::Response* /*response*/) override {
       abort();
       return ::grpc::Status(::grpc::StatusCode::UNIMPLEMENTED, "");
     }
     // replace default version of method with streamed unary
-    virtual ::grpc::Status StreamedProposeBlock(::grpc::ServerContext* context, ::grpc::ServerUnaryStreamer< ::Vote,::Response>* server_unary_streamer) = 0;
+    virtual ::grpc::Status StreamedProposeBlock(::grpc::ServerContext* context, ::grpc::ServerUnaryStreamer< ::Proposal,::Response>* server_unary_streamer) = 0;
   };
   typedef WithStreamedUnaryMethod_NotifyVote<WithStreamedUnaryMethod_ProposeBlock<Service > > StreamedUnaryService;
   typedef Service SplitStreamedService;

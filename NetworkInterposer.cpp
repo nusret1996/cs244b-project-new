@@ -1,6 +1,7 @@
 #include "NetworkInterposer.h"
+#include "grpcpp/create_channel.h"
 
-NetworkInterposer::NetworkInterposer(const std::list<Peer> &peers) {
+NetworkInterposer::NetworkInterposer(const std::vector<Peer> &peers) {
     bool error = false;
 
     for (const Peer &remote : peers) {
@@ -12,7 +13,7 @@ NetworkInterposer::NetworkInterposer(const std::list<Peer> &peers) {
             break;
         }
 
-        stub.emplace_back(Streamlet::NewStub(ch));
+        stub.emplace_back(Streamlet::NewStub(channel.back()));
 
         // Check returned stub isn't nullptr
         if (!stub.back()) {

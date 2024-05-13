@@ -9,11 +9,15 @@
 
 #include "streamlet.grpc.pb.h"
 
-#include "structs.h"
-#include "setup.h"
-
 #include <iostream>
 #include <mutex>
+
+#include "structs.h"
+#include "utils.h"
+#include "NetworkInterposer.h"
+#include "CryptoManager.h"
+
+using std::chrono::system_clock;
 
 /*
  * Implements an extension to the Streamlet protocol in which votes are
@@ -29,21 +33,18 @@
  */
 class StreamletNodeV2 : public Streamlet::Service {
 public:
-    using std::chrono::system_clock;
-
     /*
      * Params
      *   id: Index in peers that is the ID of this node
-     *   peers: List of peers in the including the local node
+     *   peers: Vector of peers in the including the local node
      *   priv: Private key of local node
      *   pub: Public key of local node
      *   epoch_len: Duration of the epoch in milliseconds
      */
     StreamletNodeV2(
         uint32_t id,
-        const std::list<Peer> &peers,
+        const std::vector<Peer> &peers,
         const Key &priv,
-        const Key &pub,
         const std::chrono::milliseconds &epoch_len
     );
 
@@ -51,13 +52,13 @@ public:
 
     grpc::Status NotifyVote(
         grpc::ServerContext* context,
-        const Vote* request,
+        const Vote* vote,
         Response* response
     ) override;
 
     grpc::Status ProposeBlock(
         grpc::ServerContext* context,
-        const Vote* request,
+        const Proposal* proposal,
         Response* response
     ) override;
 
@@ -91,7 +92,7 @@ private:
     grpc::CompletionQueue req_queue;
 
     // Blocks that have been seen or proposed and that are awaiting votes
-    std::unordered_map<uint64_t, ChainElement> candidates;
+    std::unordered_map<uint64_t, ChainElement*> candidates;
 
     // Mutex for candidates. Short reads in common case so better not
     // having reader/writer lock.
@@ -117,6 +118,9 @@ private:
     // Number of peers, which is one greater than the max ID
     const uint32_t num_peers;
 
+    // Number of votes at which a block is notarized
+    const uint32_t note_threshold;
+
     // Duration of each epoch
     const system_clock::duration epoch_duration;
 
@@ -126,21 +130,21 @@ private:
 
 StreamletNodeV2::StreamletNodeV2(
     uint32_t id,
-    const std::list<Peer> &peers,
+    const std::vector<Peer> &peers,
     const Key &priv,
-    const Key &pub,
     const std::chrono::milliseconds &epoch_len)
     : network{peers},
-    crypto{peers, priv, pub},
-    genesis_block{0, 0, std::vector<bool>{}, Block{}},
-    local_addr{peers[local_id].addr},
+    crypto{peers, priv, peers.at(id).key},
+    genesis_block{static_cast<uint32_t>(peers.size())},
+    local_addr{peers.at(id).addr},
     local_id{id},
     num_peers{static_cast<uint32_t>(peers.size())},
+    note_threshold{((num_peers + 2) / 3) * 2},
     epoch_duration{std::chrono::duration_cast<system_clock::duration>(epoch_len)},
     epoch_counter{0} {
 
     // Create entry for dependents of genesis block
-    successors.push_back(0, std::list{});
+    successors.emplace(0, std::list<uint64_t>{});
 }
 
 StreamletNodeV2::~StreamletNodeV2() {
@@ -149,12 +153,14 @@ StreamletNodeV2::~StreamletNodeV2() {
 
 grpc::Status StreamletNodeV2::NotifyVote(
     grpc::ServerContext* context,
-    const Vote* request,
+    const Vote* vote,
     Response* response
 ) {
     const uint64_t b_epoch = vote->epoch();
+    const std::string& b_hash = vote->hash();
+    const uint32_t voter = vote->node();
 
-    if (!crypto.verify_signature(vote->node(), vote->hash(), vote->signature())) {
+    if (!crypto.verify_signature(voter, b_hash, vote->signature())) {
         return grpc::Status::OK; // discard
     }
 
@@ -165,6 +171,8 @@ grpc::Status StreamletNodeV2::NotifyVote(
     // processed, if it is valid
     uint32_t votes = 0;
 
+    ChainElement *elem = nullptr;
+
     // In the following cases, apply notarization procedure if and only if
     // remove == false and votes == 2/3 majority. votes becomes non-zero
     // only when the newly recorded vote puts the block at a 2/3 majority.
@@ -172,59 +180,63 @@ grpc::Status StreamletNodeV2::NotifyVote(
     // notarization a second time.
 
     candidates_m.lock();
+    std::unordered_map<uint64_t, ChainElement*>::iterator iter
+            = candidates.find(b_epoch);
+
     const uint64_t cur_epoch = epoch_counter.load(std::memory_order_relaxed);
     if (b_epoch > cur_epoch) {
         candidates_m.unlock(); // discard and ignore or report error
     } else if (b_epoch == cur_epoch) {
-        // operator[] will construct the entry if it does not exist
-        ChainElement &elem = candidates[b_epoch];
-        elem.ref_count.fetch_add(1, std::memory_order_relaxed);
+        if (iter == candidates.end()) {
+            elem = new ChainElement{num_peers};
+            candidates.emplace(b_epoch, elem);
+        } else {
+            elem = iter->second;
+        }
+        elem->ref_count.fetch_add(1, std::memory_order_relaxed);
 
         candidates_m.unlock();
 
-        elem.m.lock();
+        elem->m.lock();
         // Empty hash means the proposal has not yet been seen
-        if (elem.hash.empty()) {
-            elem.vote_hashes.emplace_back(vote->node(), vote->hash());
-        } else if (elem.hash == vote->hash() && elem.voters[i] != true) {
-            elem.voters[i] = true;
-            votes = elem.voters.count();
+        if (elem->hash.empty()) {
+            elem->vote_hashes.emplace(voter, b_hash);
+        } else if (elem->hash == b_hash && elem->voters[voter] != true) {
+            elem->voters[voter] = true;
+            votes = ++elem->votes;
         }
-        remove = (elem.removed
-            && (elem.ref_count.fetch_sub(1, std::memory_order_relaxed) == 1));
-        elem.m.unlock();
+        remove = (elem->removed
+            && (elem->ref_count.fetch_sub(1, std::memory_order_relaxed) == 1));
+        elem->m.unlock();
 
         if (remove) {
-            // delete
+            delete elem;
         } else if (votes == note_threshold) {
 
         }
-    } else { // b_epoch < cur_epoch
-        std::unordered_map<uint64_t, ChainElement>::iterator iter
-            = candidates.find(b_epoch);
-
+    } else {
         // Since cur_epoch > b_epoch, if elem is not found, the proposal
         // was not seen in time and any prior ChainElem was cleaned up
         if (iter != candidates.end()) {
-            ChainElement &elem = iter.second;
+            elem = iter->second;
 
             // If elem is found, but no proposal has been seen, remove it
             // TODO: Consider whether this can be factored outside candidates_m
-            elem.m.lock();
-            if (elem.hash.empty()) {
+            elem->m.lock();
+            if (elem->hash.empty()) {
                 candidates.erase(iter);
-                elem.removed = true;
-                remove = (elem.ref_count.load(std::memory_order_relaxed) == 0);
-            } else if (elem.hash == vote->hash() && elem.voters[i] != true) {
-                elem.voters[i] = true;
-                votes = elem.voters.count();
+                elem->removed = true;
+                remove = (elem->ref_count.load(std::memory_order_relaxed) == 0);
+            } else if (elem->hash == b_hash && elem->voters[voter] != true) {
+                elem->voters[voter] = true;
+                votes = ++elem->votes;
             }
-            elem.m.unlock();
+            elem->m.unlock();
 
             candidates_m.unlock();
 
             if (remove) {
-                // delete
+                delete elem;
             } else if (votes == note_threshold) {
 
             }
@@ -246,18 +258,15 @@ grpc::Status StreamletNodeV2::NotifyVote(
 
 grpc::Status StreamletNodeV2::ProposeBlock(
     grpc::ServerContext* context,
-    const Vote* request,
+    const Proposal* proposal,
     Response* response
 ) {
-    const uint64_t b_epoch = proposal->block()->epoch();
-
-    if (proposal->node() != crypto.hash_epoch(cur_epoch)) {
-        return grpc::Status::OK; // discard message
-    }
+    const uint64_t b_epoch = proposal->block().epoch();
+    const uint32_t proposer = proposal->node();
 
     std::string hash;
-    crypto.hash_block(proposal->block(), hash);
-    if (!crypto.verify_signature(proposal->node(), hash, proposal->signature())) {
+    crypto.hash_block(&proposal->block(), hash);
+    if (!crypto.verify_signature(proposer, hash, proposal->signature())) {
         return grpc::Status::OK; // discard message
     }
 
@@ -275,6 +284,7 @@ grpc::Status StreamletNodeV2::ProposeBlock(
     bool valid = false;
     bool remove = false;
     uint32_t votes = 0;
+    ChainElement *elem = nullptr;
 
     candidates_m.lock();
 
@@ -283,46 +293,58 @@ grpc::Status StreamletNodeV2::ProposeBlock(
     // after b_epoch < cur_epoch has been seen in NotifyVote
     const uint64_t cur_epoch = epoch_counter.load(std::memory_order_relaxed);
 
-    if (b_epoch == cur_epoch) {
-        // operator[] will construct the entry if it does not exist
-        ChainElement &elem = candidates[b_epoch];
-        elem.ref_count.fetch_add(1, std::memory_order_relaxed);
+    if (proposer != crypto.hash_epoch(cur_epoch)) {
+        candidates_m.lock(); // discard message
+    } else if (b_epoch == cur_epoch) {
+        std::unordered_map<uint64_t, ChainElement*>::iterator iter
+            = candidates.find(b_epoch);
+        if (iter == candidates.end()) {
+            elem = new ChainElement{num_peers};
+            candidates.emplace(b_epoch, elem);
+        } else {
+            elem = iter->second;
+        }
+        elem->ref_count.fetch_add(1, std::memory_order_relaxed);
+
         candidates_m.unlock();
 
         // An empty hash means the proposal has not yet been seen. If it has been
         // seen, then this is a duplicate message that must be dropped.
-        elem.m.lock();
-        if (elem.hash.empty()) {
-            elem.hash = hash;
-            elem.voters.resize(num_peers);
+        elem->m.lock();
+        if (elem->hash.empty()) {
+            elem->hash = hash;
+            votes = 1; // Count proposer's vote here
 
-            for (std::pair<const uint32_t, std::string> &p : elem.vote_hashes) {
+            elem->voters[proposer] = true;
+            for (std::pair<const uint32_t, std::string> &p : elem->vote_hashes) {
                 if (p.second == hash) {
-                    elem.voters[p.first] = true;
+                    elem->voters[p.first] = true;
                     votes++;
                 }
             }
+            elem->votes = votes;
 
-            elem.vote_hashes.clear();
+            elem->vote_hashes.clear();
 
             valid = true;
         }
-        remove = (elem.removed
-            && (elem.ref_count.fetch_sub(1, std::memory_order_relaxed) == 1));
-        elem.m.unlock();
+        remove = (elem->removed
+            && (elem->ref_count.fetch_sub(1, std::memory_order_relaxed) == 1));
+        elem->m.unlock();
     } else {
-        candidates_m.unlock();
+        candidates_m.unlock(); // discard message
     }
 
+    // Between candidates_m.unlock() and elem.m.lock() in the if branch above,
+    // it is possible that the epoch advances and a call to NotifyVote for the
+    // same block sees that b_epoch < cur_epoch. Since elem.hash is still empty,
+    // NotifyVote will think that the proposal has failed to arrive in time and
+    // mark the block for removal. Since that vote will be lost, and any yielded
+    // concurrent calls to NotifyVote with b_epoch == cur_epoch also wake up
+    // expecting the block to be removed, the proposal must be discarded here.
     if (remove) {
-
+        delete elem;
     } else if (valid && votes == note_threshold) {
-
-    }
-
-    // If valid is false when the branches above converge, the block is discarded.
-    // Otherwise, it has been verified and notarization and finalization can be checked.
-    if (valid && votes == note_threshold) {
         // Link pending chain elements and check for finalization
     }
 
@@ -333,17 +355,17 @@ void StreamletNodeV2::Run(system_clock::time_point epoch_sync) {
     // Build server and run
     std::string server_address{ local_addr };
 
-    ServerBuilder builder;
+    grpc::ServerBuilder builder;
     builder.AddListeningPort(server_address, grpc::InsecureServerCredentials());
     builder.RegisterService(this);
 
-    std::unique_ptr<Server> server(builder.BuildAndStart());
+    std::unique_ptr<grpc::Server> server(builder.BuildAndStart());
 
     // Poll for completed async requests and monitor epoch progress
     grpc::CompletionQueue::NextStatus status;
     void *tag;
     bool ok;
-    status = req_queue.AsyncNext(&tag, &ok, epoch_sync)
+    status = req_queue.AsyncNext(&tag, &ok, epoch_sync);
     while (status != grpc::CompletionQueue::NextStatus::SHUTDOWN) {
         // Always check if the epoch advanced
         system_clock::time_point t_now = system_clock::now();
@@ -378,15 +400,33 @@ void StreamletNodeV2::Run(system_clock::time_point epoch_sync) {
 }
 
 int main(const int argc, const char *argv[]) {
-    // read command line: sync_time config_file local_id
+    // read command line: sync_time epoch_len config_file local_id
     // parse config into std::list<Peer>
     int status = 0;
+    const uint32_t id = strtoul(argv[4], nullptr, 10);
+    const uint32_t epoch = strtoul(argv[2], nullptr, 10);
+    std::vector<Peer> peers;
+    Key privkey;
+
+    status = load_config(argv[3], id, peers, privkey);
+
+    if (status == 1) {
+        std::cerr << "Unable to open or read " << argv[3] << std::endl;
+        return 1;
+    } else if (status == 2) {
+        std::cerr << "Configuration in " << argv[3] << " is malformed" << std::endl;
+        return 1;
+    }
 
     StreamletNodeV2 service{
-
+        id,
+        peers,
+        privkey,
+        std::chrono::milliseconds{epoch}
     };
 
-    std::chrono::system_clock::time_point sync_start;
+    // Run this as close to service.Run() as possible
+    system_clock::time_point sync_start;
     status = sync_time(argv[1], sync_start);
 
     if (status == 1) {
@@ -396,6 +436,8 @@ int main(const int argc, const char *argv[]) {
         std::cerr << "Start time already passed" << std::endl;
         return 1;
     }
+
+    std::cout << "Running as node " << id << " at " << peers[id].addr << std::endl;
 
     service.Run(sync_start);
 

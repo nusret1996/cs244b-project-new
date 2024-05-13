@@ -1,6 +1,7 @@
 #include "CryptoManager.h"
+#include <algorithm>
 
-CryptoManager::CryptoManager(const std::list<Peer> &peers, const Key &priv, const Key &pub)
+CryptoManager::CryptoManager(const std::vector<Peer> &peers, const Key &priv, const Key &pub)
     : pub_key{pub}, priv_key{priv} {
 
     // create EVP_PKEY containing local node's private and public keys for signing
@@ -22,7 +23,7 @@ void CryptoManager::hash_block(const Block *block, std::string &hash) {
     // nondeterminstic. Should be determinisitic for the same version of
     // the library and language binding.
     std::string buffer;
-    block->SerializeToString(buffer);
+    block->SerializeToString(&buffer);
     return sha256_of(buffer.data(), buffer.length(), hash);
 }
 
@@ -35,9 +36,9 @@ void CryptoManager::sign_sha256(const std::string &digest, std::string &sig) {
 
     // for now priv == pub and a signature is priv concatenated
     // to itself to fill out a 64 byte value
-    out.resize(2 * priv_key.size());
-    memcpy(out.data(), priv_key.data(), priv_key.size());
-    memcpy(out.data() + priv_key.size(), priv_key.data(), priv_key.size());
+    sig.resize(2 * priv_key.size());
+    copy(priv_key.cbegin(), priv_key.cend(), sig.begin());
+    copy(priv_key.cbegin(), priv_key.cend(), sig.begin() + priv_key.size());
 }
 
 bool CryptoManager::verify_signature(uint32_t node, const std::string &digest, const std::string &sig) {
@@ -51,8 +52,8 @@ bool CryptoManager::verify_signature(uint32_t node, const std::string &digest, c
     std::string k;
     const Key &pk = peer_key[node];
     k.resize(2 * pk.size());
-    memcpy(k.data(), pk.data(), pk.size());
-    memcpy(k.data() + pk.size(), pk.data(), pk.size());
+    copy(pk.cbegin(), pk.cend(), k.begin());
+    copy(pk.cbegin(), pk.cend(), k.begin() + pk.size());
     return sig == k;
 }
 

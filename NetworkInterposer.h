@@ -1,11 +1,10 @@
-#include <list>
-#include <vector>
-
-#include "grpcpp/completion_queue.h"
+#pragma once
 
 #include "streamlet.grpc.pb.h"
 
-#include "struct.h"
+#include <vector>
+
+#include "structs.h"
 
 /*
  * Abstracts away broadcasting and allows a NetworkInterposer
@@ -19,10 +18,10 @@ public:
      * when acting as leader, or for implicit echoing, when acting as follower.
      */
     struct Pending {
-        ClientContext context;
+        grpc::ClientContext context;
         Response resp;
         grpc::Status status;
-    }
+    };
 
     /*
      * Set up necessary infra for making async calls to all peers at the
@@ -33,7 +32,7 @@ public:
      * nodes. Operations in NetworkInterposer refer to peers by their
      * node ID.
      */
-    NetworkInterposer(const std::list<Peer> &peers);
+    NetworkInterposer(const std::vector<Peer> &peers);
 
     /*
      * Containers do not release held objects, so resources must

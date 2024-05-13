@@ -1,3 +1,5 @@
+#pragma once
+
 #include <string>
 #include <vector>
 #include <stack>
@@ -20,7 +22,7 @@ public:
      * priv and pub are the keypair of the local node used to sign its
      * own messages.
      */
-    CryptoManager(const std::list<Peer> &peers, const Key &priv, const Key &pub);
+    CryptoManager(const std::vector<Peer> &peers, const Key &priv, const Key &pub);
 
     /*
      * OpenSSL has a ton of state to clean up.

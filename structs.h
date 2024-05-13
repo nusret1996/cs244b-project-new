@@ -1,3 +1,5 @@
+#pragma once
+
 #include "streamlet.pb.h"
 
 // Interface for StreamletNodes to talk to applications
@@ -19,7 +21,7 @@ using Key = std::array<uint8_t, 32>;
 struct Peer {
     std::string addr;
     Key key;
-}
+};
 
 /*
  * A block on the blockchain containing the protobuf Block type
@@ -61,6 +63,10 @@ struct ChainElement {
     // is a template parameter).
     std::vector<bool> voters;
 
+    // Number of unique votes seen for this block. Equal to
+    // the number of true entries in the vector above.
+    uint32_t votes;
+
     // The block hash
     std::string hash;
 
@@ -70,5 +76,8 @@ struct ChainElement {
     // Index of this block in its chain
     uint64_t index;
 
-    ChainElement() : removed{false}, ref_count{0}, votes{0}, hash{}, block{}, index{0} { }
-}
+    ChainElement(const uint32_t num_peers)
+        : removed{false}, ref_count{0}, votes{0}, hash{}, block{}, index{0} {
+            voters.resize(num_peers);
+    }
+};
