@@ -84,6 +84,10 @@ public:
     void QueueTransactions();
 
 private:
+    void link_block(Candidate *cand, uint32_t id, uint32_t parent);
+
+    void notarize_block(Candidate *cand, uint32_t id, uint32_t parent);
+
     NetworkInterposer network;
 
     CryptoManager crypto;
@@ -92,7 +96,7 @@ private:
     grpc::CompletionQueue req_queue;
 
     // Blocks that have been seen or proposed and that are awaiting votes
-    std::unordered_map<uint64_t, ChainElement*> candidates;
+    std::unordered_map<uint64_t, Candidate*> candidates;
 
     // Mutex for candidates. Short reads in common case so better not
     // having reader/writer lock.
@@ -101,7 +105,7 @@ private:
     // Mapping from a block to its dependents so that the chain can
     // be constructed with later blocks that were notarized first and
     // were waiting on a given earlier block
-    std::unordered_map<uint64_t, std::list<uint64_t>> successors;
+    std::unordered_map<uint64_t, ChainElement> successors;
 
     // Mutex for successors
     std::mutex successors_m;
@@ -135,7 +139,7 @@ StreamletNodeV2::StreamletNodeV2(
     const std::chrono::milliseconds &epoch_len)
     : network{peers},
     crypto{peers, priv, peers.at(id).key},
-    genesis_block{static_cast<uint32_t>(peers.size())},
+    genesis_block{},
     local_addr{peers.at(id).addr},
     local_id{id},
     num_peers{static_cast<uint32_t>(peers.size())},
@@ -144,7 +148,7 @@ StreamletNodeV2::StreamletNodeV2(
     epoch_counter{0} {
 
     // Create entry for dependents of genesis block
-    successors.emplace(0, std::list<uint64_t>{});
+    successors.emplace(0, ChainElement{});
 }
 
 StreamletNodeV2::~StreamletNodeV2() {
@@ -171,16 +175,17 @@ grpc::Status StreamletNodeV2::NotifyVote(
     // processed, if it is valid
     uint32_t votes = 0;
 
-    ChainElement *elem = nullptr;
+    Candidate *cand = nullptr;
 
     // In the following cases, apply notarization procedure if and only if
     // remove == false and votes == 2/3 majority. votes becomes non-zero
-    // only when the newly recorded vote puts the block at a 2/3 majority.
+    // only when the newly recorded vote puts the block at a 2/3 majority
+    // and the proposal has been seen.
     // Duplicate messages do not set votes and hence will not indicate
     // notarization a second time.
 
     candidates_m.lock();
-    std::unordered_map<uint64_t, ChainElement*>::iterator iter
+    std::unordered_map<uint64_t, Candidate*>::iterator iter
             = candidates.find(b_epoch);
 
     const uint64_t cur_epoch = epoch_counter.load(std::memory_order_relaxed);
@@ -188,55 +193,55 @@ grpc::Status StreamletNodeV2::NotifyVote(
         candidates_m.unlock(); // discard and ignore or report error
     } else if (b_epoch == cur_epoch) {
         if (iter == candidates.end()) {
-            elem = new ChainElement{num_peers};
-            candidates.emplace(b_epoch, elem);
+            cand = new Candidate{num_peers};
+            candidates.emplace(b_epoch, cand);
         } else {
-            elem = iter->second;
+            cand = iter->second;
         }
-        elem->ref_count.fetch_add(1, std::memory_order_relaxed);
+        cand->ref_count.fetch_add(1, std::memory_order_relaxed);
 
         candidates_m.unlock();
 
-        elem->m.lock();
+        cand->m.lock();
         // Empty hash means the proposal has not yet been seen
-        if (elem->hash.empty()) {
-            elem->vote_hashes.emplace(voter, b_hash);
-        } else if (elem->hash == b_hash && elem->voters[voter] != true) {
-            elem->voters[voter] = true;
-            votes = ++elem->votes;
+        if (cand->hash.empty()) {
+            cand->vote_hashes.emplace(voter, b_hash);
+        } else if (cand->hash == b_hash && cand->voters[voter] != true) {
+            cand->voters[voter] = true;
+            votes = ++cand->votes;
         }
-        remove = (elem->removed
-            && (elem->ref_count.fetch_sub(1, std::memory_order_relaxed) == 1));
-        elem->m.unlock();
+        remove = (cand->removed
+            && (cand->ref_count.fetch_sub(1, std::memory_order_relaxed) == 1));
+        cand->m.unlock();
 
         if (remove) {
-            delete elem;
+            delete cand;
         } else if (votes == note_threshold) {
 
         }
     } else {
-        // Since cur_epoch > b_epoch, if elem is not found, the proposal
-        // was not seen in time and any prior ChainElem was cleaned up
+        // Since cur_epoch > b_epoch, if cand is not found, the proposal
+        // was not seen in time and any prior Candidate was cleaned up
         if (iter != candidates.end()) {
-            elem = iter->second;
+            cand = iter->second;
 
-            // If elem is found, but no proposal has been seen, remove it
+            // If cand is found, but no proposal has been seen, remove it
             // TODO: Consider whether this can be factored outside candidates_m
-            elem->m.lock();
-            if (elem->hash.empty()) {
+            cand->m.lock();
+            if (cand->hash.empty()) {
                 candidates.erase(iter);
-                elem->removed = true;
-                remove = (elem->ref_count.load(std::memory_order_relaxed) == 0);
-            } else if (elem->hash == b_hash && elem->voters[voter] != true) {
-                elem->voters[voter] = true;
-                votes = ++elem->votes;
+                cand->removed = true;
+                remove = (cand->ref_count.load(std::memory_order_relaxed) == 0);
+            } else if (cand->hash == b_hash && cand->voters[voter] != true) {
+                cand->voters[voter] = true;
+                votes = ++cand->votes;
             }
-            elem->m.unlock();
+            cand->m.unlock();
 
             candidates_m.unlock();
 
             if (remove) {
-                delete elem;
+                delete cand;
             } else if (votes == note_threshold) {
 
             }
@@ -270,21 +275,24 @@ grpc::Status StreamletNodeV2::ProposeBlock(
         return grpc::Status::OK; // discard message
     }
 
-    // Check that the block extends the longest chain
+    // Check that the block extends the longest chain. Under the current
+    // assumptions, there is actually no way to check this. In any case,
+    // because votes can arrive out of order, this would need to go
+    // after the vote counting below.
     // if () {
-        
+
     // }
 
     // Check that the block is a valid extension according to the application
     // by invoking a callback on the ReplicatedStateMachine.
     // if () {
-        
+
     // }
 
     bool valid = false;
     bool remove = false;
     uint32_t votes = 0;
-    ChainElement *elem = nullptr;
+    Candidate *cand = nullptr;
 
     candidates_m.lock();
 
@@ -296,59 +304,128 @@ grpc::Status StreamletNodeV2::ProposeBlock(
     if (proposer != crypto.hash_epoch(cur_epoch)) {
         candidates_m.lock(); // discard message
     } else if (b_epoch == cur_epoch) {
-        std::unordered_map<uint64_t, ChainElement*>::iterator iter
+        std::unordered_map<uint64_t, Candidate*>::iterator iter
             = candidates.find(b_epoch);
         if (iter == candidates.end()) {
-            elem = new ChainElement{num_peers};
-            candidates.emplace(b_epoch, elem);
+            cand = new Candidate{num_peers};
+            candidates.emplace(b_epoch, cand);
         } else {
-            elem = iter->second;
+            cand = iter->second;
         }
-        elem->ref_count.fetch_add(1, std::memory_order_relaxed);
+        cand->ref_count.fetch_add(1, std::memory_order_relaxed);
 
         candidates_m.unlock();
 
         // An empty hash means the proposal has not yet been seen. If it has been
         // seen, then this is a duplicate message that must be dropped.
-        elem->m.lock();
-        if (elem->hash.empty()) {
-            elem->hash = hash;
+        cand->m.lock();
+        if (cand->hash.empty()) {
+            cand->hash = hash;
             votes = 1; // Count proposer's vote here
 
-            elem->voters[proposer] = true;
-            for (std::pair<const uint32_t, std::string> &p : elem->vote_hashes) {
+            cand->voters[proposer] = true;
+            for (std::pair<const uint32_t, std::string> &p : cand->vote_hashes) {
                 if (p.second == hash) {
-                    elem->voters[p.first] = true;
+                    cand->voters[p.first] = true;
                     votes++;
                 }
             }
-            elem->votes = votes;
+            cand->votes = votes;
 
-            elem->vote_hashes.clear();
+            cand->vote_hashes.clear();
 
             valid = true;
         }
-        remove = (elem->removed
-            && (elem->ref_count.fetch_sub(1, std::memory_order_relaxed) == 1));
-        elem->m.unlock();
+        remove = (cand->removed
+            && (cand->ref_count.fetch_sub(1, std::memory_order_relaxed) == 1));
+        cand->m.unlock();
     } else {
         candidates_m.unlock(); // discard message
     }
 
-    // Between candidates_m.unlock() and elem.m.lock() in the if branch above,
+    // Between candidates_m.unlock() and cand.m.lock() in the if branch above,
     // it is possible that the epoch advances and a call to NotifyVote for the
-    // same block sees that b_epoch < cur_epoch. Since elem.hash is still empty,
+    // same block sees that b_epoch < cur_epoch. Since cand.hash is still empty,
     // NotifyVote will think that the proposal has failed to arrive in time and
     // mark the block for removal. Since that vote will be lost, and any yielded
     // concurrent calls to NotifyVote with b_epoch == cur_epoch also wake up
     // expecting the block to be removed, the proposal must be discarded here.
     if (remove) {
-        delete elem;
-    } else if (valid && votes == note_threshold) {
-        // Link pending chain elements and check for finalization
+        delete cand;
+    } else if (valid) {
+        // link_block();
+
+        if (votes == note_threshold) {
+            // notarize_block();
+        }
     }
 
     return grpc::Status::OK;
+}
+
+/*
+ * An id should only be added once
+ */
+void StreamletNodeV2::link_block(Candidate *cand, uint32_t id, uint32_t parent) {
+    std::list<ChainElement*> queue;
+
+    successors_m.lock();
+    // std::pair<std::unordered_map<uint64_t, ChainElement>::iterator, bool> ins =
+    //     successors.emplace(id, ChainElement{});
+    ChainElement &new_elem = successors[id];
+    if (new_elem.epoch == 0) {
+        new_elem.epoch = id;
+        new_elem.cand = cand;
+    } else if (new_elem.cand == nullptr) {
+        new_elem.cand = cand;
+    }
+
+    ChainElement &p_elem = successors[parent];
+    if (p_elem.epoch == 0 && parent != 0) {
+        p_elem.epoch = parent;
+    }
+
+    p_elem.links.push_back(&new_elem);
+
+    // If the parent is already linked into the chain, or the parent is the genesis
+    // block, then set the chain index of new_elem and look for any children
+    // that can be linked and check if they extend the longest chain at their position.
+    if (p_elem.index != 0 || parent == 0) {
+        new_elem.index = p_elem.index + 1;
+
+        queue.push_back(&new_elem);
+
+        // Run a BFS to relink candidates
+        std::list<ChainElement*>::iterator elem = queue.begin();
+        while (elem != queue.end()) {
+            for (ChainElement *child : (*elem)->links) {
+                child->index = (*elem)->index + 1;
+                queue.push_back(child);
+            }
+            elem++;
+        }
+
+        // longest_chain = queue.back()->index;
+
+    }
+
+    successors_m.unlock();
+
+    // send out any votes here
+}
+
+void StreamletNodeV2::notarize_block(Candidate *cand, uint32_t id, uint32_t parent) {
+    /*successors_m.lock();
+    std::pair<std::unordered_map<uint64_t, std::list<Candidate*>>, bool> iter =
+        successors.emplace(id, std::list<Candidate*>{}); // only succeeds if not already present
+    successors[parent].push_back(elem);
+
+    // do dfs from here, updating longest index
+    for (Candidate *p : iter.second) {
+
+    }
+
+    successors_m.unlock();*/
 }
 
 void StreamletNodeV2::Run(system_clock::time_point epoch_sync) {
