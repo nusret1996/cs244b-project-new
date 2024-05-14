@@ -45,7 +45,7 @@ int sync_time(const char *utc_start, std::chrono::system_clock::time_point &tpoi
     return 0;
 }
 
-int load_config(const std::string &file, uint32_t id, std::vector<Peer> &peers, Key &priv) {
+int load_config(const char *file, uint32_t id, std::vector<Peer> &peers, Key &priv) {
     std::ifstream f{file};
     char *line = new char[1024];
     int status = 0;
@@ -77,38 +77,42 @@ int load_config(const std::string &file, uint32_t id, std::vector<Peer> &peers, 
 
         // Extract public key
         do {
-            prev = space;
+            prev = space + 1;
             space = strchr(prev, ' ');
-        } while (space && (space - prev == 1));
+        } while (space && space == prev);
         
-        if (!space || space - (prev + 1) != 32) {
+        if (!space || space - prev != 64) {
             status = 2;
             break;
         }
 
-        // prev is last space so the key begins at prev + 1
-        memcpy(p.key.data(), prev + 1, space - (prev + 1));
+        // key begins at prev which is one past character the last space
+        read_hexstring(p.key.data(), 32, prev);
 
         // Private key, make sure not malformed regardless of whether
         // the key is extracted
         do {
-            prev = space;
+            prev = space + 1;
             space = strchr(prev, ' ');
-        } while (space && (space - prev == 1));
+        } while (space && space == prev);
 
-        if (strlen(prev + 1) != 32) {
+        if (strlen(prev) != 64) {
             status = 2;
             break;
         }
 
         // Copy the key
         if (count == id) {
-            memcpy(priv.data(), prev + 1, space - (prev + 1));
+            read_hexstring(priv.data(), 32, prev);
         }
 
-        peers.push_back(p);
+        peers.emplace_back(p);
 
         count++;
+    }
+
+    if (f.fail() && !f.eof()) {
+        status = 3;
     }
 
     delete[] line;
@@ -117,7 +121,7 @@ int load_config(const std::string &file, uint32_t id, std::vector<Peer> &peers, 
 }
 
 size_t read_hexstring(uint8_t *bytes, size_t len, const std::string &str) {
-    char b[2];
+    char b[3] = { '\0', '\0', '\0' };
     size_t pos = 0;
 
     while (pos < len && (2 * pos + 1) < str.length()) {
@@ -168,16 +172,31 @@ int main(int argc, const char *argv[]) {
         // s = std::chrono::duration_cast<std::chrono::seconds>(epoch_sync.time_since_epoch());
         // std::cout << epoch_sync.time_since_epoch().count() << "us or " << s.count() << 's' << std::endl;
 
-        uint8_t b[64];
-        std::string str{argv[1]};
-        size_t n = read_hexstring(b, 64, str);
+        // uint8_t b[64];
+        // std::string str{argv[1]};
+        // size_t n = read_hexstring(b, 64, str);
 
-        std::cout << "Read " << n << " hex digits" << std::endl;
+        // std::cout << "Read " << n << " hex digits" << std::endl;
 
-        str.clear();
-        write_hexstring(str, b, n);
+        // str.clear();
+        // write_hexstring(str, b, n);
 
-        std::cout << "Wrote " << str << std::endl;
+        // std::cout << "Wrote " << str << std::endl;
+
+        std::vector<Peer> peers;
+        Key key;
+        std::string str;
+
+        int r = load_config(argv[1], 1, peers, key);
+        std::cout << "status " << r << std::endl;
+
+        for (Peer &p : peers) {
+            write_hexstring(str, p.key.data(), p.key.size());
+            std::cout << "Host " << p.addr << " public key " << str << std::endl;
+        }
+
+        write_hexstring(str, key.data(), key.size());
+        std::cout << "Read private key " << str << std::endl;
     }
 
     return 0;
