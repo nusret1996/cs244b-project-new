@@ -29,6 +29,10 @@ void CryptoManager::hash_block(const Block *block, std::string &hash) {
 
 void CryptoManager::sha256_of(const void *data, uint64_t bytes, std::string &hash) {
     // to be implemented
+
+    // for now set all zeros
+    hash.resize(32);
+    fill(hash.begin(), hash.end(), 0);
 }
 
 void CryptoManager::sign_sha256(const std::string &digest, std::string &sig) {

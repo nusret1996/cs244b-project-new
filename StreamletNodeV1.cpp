@@ -20,18 +20,17 @@
 using std::chrono::system_clock;
 
 /*
- * Implements an extension to the Streamlet protocol in which votes are
- * allowed to arrive after the epoch in which a block is proposed. However,
- * epochs still track physical time, and in particular, a new block cannot
- * be proposed until the duration of physical time corresponding to an
- * epoch has elapsed, even if the block proposed in a prior epoch has been
- * notarized.
+ * Implements the Streamlet protocol in which votes are allowed to arrive after
+ * the epoch in which a block is proposed. However, epochs still track physical
+ * time, and in particular, a new block cannot be proposed until the duration
+ * of physical time corresponding to an epoch has elapsed, even if the block
+ * proposed in a prior epoch has been notarized.
  *
  * The service implements the RPC server using the synchronous interface
  * and acts as an RPC client using the asynchronous interface so that
  * broadcasts to other nodes do not block request processing.
  */
-class StreamletNodeV2 : public Streamlet::Service {
+class StreamletNodeV1 : public Streamlet::Service {
 public:
     /*
      * Params
@@ -41,14 +40,14 @@ public:
      *   pub: Public key of local node
      *   epoch_len: Duration of the epoch in milliseconds
      */
-    StreamletNodeV2(
+    StreamletNodeV1(
         uint32_t id,
         const std::vector<Peer> &peers,
         const Key &priv,
         const std::chrono::milliseconds &epoch_len
     );
 
-    ~StreamletNodeV2();
+    ~StreamletNodeV1();
 
     grpc::Status NotifyVote(
         grpc::ServerContext* context,
@@ -84,9 +83,7 @@ public:
     void QueueTransactions();
 
 private:
-    void link_block(Candidate *cand, uint32_t id, uint32_t parent);
-
-    void notarize_block(Candidate *cand, uint32_t id, uint32_t parent);
+    void notarize_block(const Block &note_block, uint32_t note_epoch, uint32_t par_epoch);
 
     NetworkInterposer network;
 
@@ -106,6 +103,9 @@ private:
     // be constructed with later blocks that were notarized first and
     // were waiting on a given earlier block
     std::unordered_map<uint64_t, ChainElement> successors;
+
+    // Length of longest notarized chain, also guarded by successors_m
+    uint64_t max_chainlen;
 
     // Mutex for successors
     std::mutex successors_m;
@@ -132,13 +132,14 @@ private:
     std::atomic_uint64_t epoch_counter;
 };
 
-StreamletNodeV2::StreamletNodeV2(
+StreamletNodeV1::StreamletNodeV1(
     uint32_t id,
     const std::vector<Peer> &peers,
     const Key &priv,
     const std::chrono::milliseconds &epoch_len)
     : network{peers},
     crypto{peers, priv, peers.at(id).key},
+    max_chainlen{0},
     genesis_block{},
     local_addr{peers.at(id).addr},
     local_id{id},
@@ -151,21 +152,22 @@ StreamletNodeV2::StreamletNodeV2(
     successors.emplace(0, ChainElement{});
 }
 
-StreamletNodeV2::~StreamletNodeV2() {
+StreamletNodeV1::~StreamletNodeV1() {
 
 }
 
-grpc::Status StreamletNodeV2::NotifyVote(
+grpc::Status StreamletNodeV1::NotifyVote(
     grpc::ServerContext* context,
     const Vote* vote,
     Response* response
 ) {
+    const uint64_t cur_epoch = epoch_counter.load(std::memory_order_relaxed);
     const uint64_t b_epoch = vote->epoch();
     const std::string& b_hash = vote->hash();
     const uint32_t voter = vote->node();
 
     if (!crypto.verify_signature(voter, b_hash, vote->signature())) {
-        return grpc::Status::OK; // discard
+        return grpc::Status::OK; // discard message
     }
 
     // Cleanup the block
@@ -175,33 +177,27 @@ grpc::Status StreamletNodeV2::NotifyVote(
     // processed, if it is valid
     uint32_t votes = 0;
 
+    // Pointer to candidate set only when the vote is in scope for the epoch
     Candidate *cand = nullptr;
-
-    // In the following cases, apply notarization procedure if and only if
-    // remove == false and votes == 2/3 majority. votes becomes non-zero
-    // only when the newly recorded vote puts the block at a 2/3 majority
-    // and the proposal has been seen.
-    // Duplicate messages do not set votes and hence will not indicate
-    // notarization a second time.
 
     candidates_m.lock();
     std::unordered_map<uint64_t, Candidate*>::iterator iter
             = candidates.find(b_epoch);
 
-    const uint64_t cur_epoch = epoch_counter.load(std::memory_order_relaxed);
-    if (b_epoch > cur_epoch) {
-        candidates_m.unlock(); // discard and ignore or report error
-    } else if (b_epoch == cur_epoch) {
+    // discard and ignore or report error if b_epoch > cur_epoch
+    if (b_epoch <= cur_epoch) {
         if (iter == candidates.end()) {
             cand = new Candidate{num_peers};
             candidates.emplace(b_epoch, cand);
         } else {
             cand = iter->second;
         }
-        cand->ref_count.fetch_add(1, std::memory_order_relaxed);
 
-        candidates_m.unlock();
+        cand->ref_count.fetch_add(1, std::memory_order_relaxed); 
+    }
+    candidates_m.unlock();
 
+    if (cand != nullptr) {
         cand->m.lock();
         // Empty hash means the proposal has not yet been seen
         if (cand->hash.empty()) {
@@ -214,60 +210,38 @@ grpc::Status StreamletNodeV2::NotifyVote(
             && (cand->ref_count.fetch_sub(1, std::memory_order_relaxed) == 1));
         cand->m.unlock();
 
+        // Apply notarization procedure if and only if remove == false and votes == 2/3 majority.
+        // This ensures the notarization procedure is applied only once, namely by the thread
+        // that records the notarizing vote. Duplicate messages do not change votes from its zero
+        // initialization and so will not indicate notarization a second time.
         if (remove) {
             delete cand;
         } else if (votes == note_threshold) {
-
-        }
-    } else {
-        // Since cur_epoch > b_epoch, if cand is not found, the proposal
-        // was not seen in time and any prior Candidate was cleaned up
-        if (iter != candidates.end()) {
-            cand = iter->second;
-
-            // If cand is found, but no proposal has been seen, remove it
-            // TODO: Consider whether this can be factored outside candidates_m
-            cand->m.lock();
-            if (cand->hash.empty()) {
-                candidates.erase(iter);
-                cand->removed = true;
-                remove = (cand->ref_count.load(std::memory_order_relaxed) == 0);
-            } else if (cand->hash == b_hash && cand->voters[voter] != true) {
-                cand->voters[voter] = true;
-                votes = ++cand->votes;
-            }
-            cand->m.unlock();
-
-            candidates_m.unlock();
-
-            if (remove) {
-                delete cand;
-            } else if (votes == note_threshold) {
-
-            }
-
-        } else {
-            candidates_m.unlock();
+            
         }
 
+        // votes is 0 exactly when the message is a duplicate
+        if (!remove && votes > 0) {
+            // echo vote with network.broadcast()
+        }
     }
-
-    // If the block has obtained enough votes for notarization but its epoch has
-    // passed by the the time the leader's proposal is seen, then we can consider
-    // ourselves faulty and start shutdown. In particular, we know this is the case
-    // if remove == true is ever seen in the else branch above since any proposal
-    // that is waiting 
 
     return grpc::Status::OK;
 }
 
-grpc::Status StreamletNodeV2::ProposeBlock(
+grpc::Status StreamletNodeV1::ProposeBlock(
     grpc::ServerContext* context,
     const Proposal* proposal,
     Response* response
 ) {
+    const uint64_t cur_epoch = epoch_counter.load(std::memory_order_relaxed);
     const uint64_t b_epoch = proposal->block().epoch();
+    const uint64_t b_parent = proposal->block().parent();
     const uint32_t proposer = proposal->node();
+
+    if (proposer != crypto.hash_epoch(cur_epoch)) {
+        return grpc::Status::OK; // discard message
+    }
 
     std::string hash;
     crypto.hash_block(&proposal->block(), hash);
@@ -275,13 +249,25 @@ grpc::Status StreamletNodeV2::ProposeBlock(
         return grpc::Status::OK; // discard message
     }
 
-    // Check that the block extends the longest chain. Under the current
-    // assumptions, there is actually no way to check this. In any case,
-    // because votes can arrive out of order, this would need to go
-    // after the vote counting below.
-    // if () {
+    // Check that the block extends the longest chain. Since messages can be delayed
+    // and the proposal might not have been seen by the time a block is notarized,
+    // it is not always possible to check this. A propsal can be definitely ruled out
+    // if its parent's index is known and is less than the maximum notarized chain length.
+    // Since a ChainElement's index is 0 when its position is not known, and the genesis
+    // block's index is also 0, this definite condition is checked in two cases, one for
+    // when the parent block is the genesis block and one for when it is not.
+    successors_m.lock();
+    std::unordered_map<uint64_t, ChainElement>::iterator iter
+        = successors.find(b_parent);
 
-    // }
+    if (iter != successors.end() &&
+        ((b_parent != 0 && iter->second.index != 0 && iter->second.index < max_chainlen)
+            || (b_parent == 0 && max_chainlen > 0))) {
+                successors_m.unlock();
+                return grpc::Status::OK; // discard
+    } else {
+        successors_m.unlock();    
+    }
 
     // Check that the block is a valid extension according to the application
     // by invoking a callback on the ReplicatedStateMachine.
@@ -289,74 +275,70 @@ grpc::Status StreamletNodeV2::ProposeBlock(
 
     // }
 
-    bool valid = false;
     bool remove = false;
     uint32_t votes = 0;
     Candidate *cand = nullptr;
 
     candidates_m.lock();
-
-    // The epoch is read while inside the lock to ensure that cur_epoch is
-    // ordered across so that b_epoch == cur_epoch cannot be seen in ProposeBlock
-    // after b_epoch < cur_epoch has been seen in NotifyVote
-    const uint64_t cur_epoch = epoch_counter.load(std::memory_order_relaxed);
-
-    if (proposer != crypto.hash_epoch(cur_epoch)) {
-        candidates_m.lock(); // discard message
-    } else if (b_epoch == cur_epoch) {
+    // discard and ignore or report error if b_epoch > cur_epoch
+    if (b_epoch <= cur_epoch) {
         std::unordered_map<uint64_t, Candidate*>::iterator iter
             = candidates.find(b_epoch);
+
         if (iter == candidates.end()) {
             cand = new Candidate{num_peers};
             candidates.emplace(b_epoch, cand);
         } else {
             cand = iter->second;
         }
-        cand->ref_count.fetch_add(1, std::memory_order_relaxed);
 
-        candidates_m.unlock();
+        cand->ref_count.fetch_add(1, std::memory_order_relaxed);        
+    }
+    candidates_m.unlock();
 
+    if (cand != nullptr) {
         // An empty hash means the proposal has not yet been seen. If it has been
-        // seen, then this is a duplicate message that must be dropped.
+        // seen, then this is a duplicate or invalid message and must be ignored.
         cand->m.lock();
         if (cand->hash.empty()) {
             cand->hash = hash;
-            votes = 1; // Count proposer's vote here
+
+            votes = 2; // Count proposer's vote and our vote here
 
             cand->voters[proposer] = true;
+            cand->voters[local_id] = true;
             for (std::pair<const uint32_t, std::string> &p : cand->vote_hashes) {
                 if (p.second == hash) {
                     cand->voters[p.first] = true;
                     votes++;
                 }
             }
-            cand->votes = votes;
 
+            cand->votes = votes;
             cand->vote_hashes.clear();
 
-            valid = true;
+            cand->block.CopyFrom(proposal->block());
         }
         remove = (cand->removed
             && (cand->ref_count.fetch_sub(1, std::memory_order_relaxed) == 1));
         cand->m.unlock();
-    } else {
-        candidates_m.unlock(); // discard message
-    }
 
-    // Between candidates_m.unlock() and cand.m.lock() in the if branch above,
-    // it is possible that the epoch advances and a call to NotifyVote for the
-    // same block sees that b_epoch < cur_epoch. Since cand.hash is still empty,
-    // NotifyVote will think that the proposal has failed to arrive in time and
-    // mark the block for removal. Since that vote will be lost, and any yielded
-    // concurrent calls to NotifyVote with b_epoch == cur_epoch also wake up
-    // expecting the block to be removed, the proposal must be discarded here.
-    if (remove) {
-        delete cand;
-    } else if (valid) {
-        // link_block();
+        // See comment above identical branch in NotifyVote. Notarization will not
+        // be applied a second time if the message is a duplicate since votes is 0.
+        if (remove) {
+            delete cand;
+        } else if (votes == note_threshold) {
+            // can lock candidates map, remove from map, add entry to some "finished" set, and then unlock
+            // then call notarize_block() with the Candidate's block
+            // then lock the Candidate, set the remove flag, record ref_count.load(std::memory_order_relaxed),
+            // and then unlock, and finally deallocate the candidate if ref_count was zero
+        }
 
-        if (votes == note_threshold) {
-            // notarize_block();
+        // votes is 0 exactly when the message is a duplicate
+        if (!remove && votes > 0) {
+            // echo proposal with network.broadcast()
+
+            // send out our vote with network.broadcast()
         }
     }
 
@@ -364,25 +346,27 @@ grpc::Status StreamletNodeV2::ProposeBlock(
 }
 
 /*
- * An id should only be added once
+ * notarize_block must be called only once for a given block/epoch id.
  */
-void StreamletNodeV2::link_block(Candidate *cand, uint32_t id, uint32_t parent) {
+void StreamletNodeV1::notarize_block(const Block &note_block, uint32_t note_epoch, uint32_t par_epoch) {
     std::list<ChainElement*> queue;
 
     successors_m.lock();
-    // std::pair<std::unordered_map<uint64_t, ChainElement>::iterator, bool> ins =
-    //     successors.emplace(id, ChainElement{});
-    ChainElement &new_elem = successors[id];
+
+    // std::pair<std::unordered_map<uint64_t, ChainElement>::iterator, bool> new_ins =
+    //     successors.emplace(note_epoch, ChainElement{});
+
+    ChainElement &new_elem = successors[note_epoch];
     if (new_elem.epoch == 0) {
-        new_elem.epoch = id;
-        new_elem.cand = cand;
-    } else if (new_elem.cand == nullptr) {
-        new_elem.cand = cand;
+        new_elem.epoch = note_epoch; // ChainElement was newly constructed
+        new_elem.block.CopyFrom(note_block);
+    } else if (!new_elem.block.IsInitialized()) {
+        new_elem.block.CopyFrom(note_block); // ChainElement already existed but block was previously not notarized
     }
 
-    ChainElement &p_elem = successors[parent];
-    if (p_elem.epoch == 0 && parent != 0) {
-        p_elem.epoch = parent;
+    ChainElement &p_elem = successors[par_epoch];
+    if (p_elem.epoch == 0 && par_epoch != 0) {
+        p_elem.epoch = par_epoch; // parent ChainElement was also constructed
     }
 
     p_elem.links.push_back(&new_elem);
@@ -390,12 +374,12 @@ void StreamletNodeV2::link_block(Candidate *cand, uint32_t id, uint32_t parent) 
     // If the parent is already linked into the chain, or the parent is the genesis
     // block, then set the chain index of new_elem and look for any children
     // that can be linked and check if they extend the longest chain at their position.
-    if (p_elem.index != 0 || parent == 0) {
+    if (p_elem.index != 0 || par_epoch == 0) {
         new_elem.index = p_elem.index + 1;
 
         queue.push_back(&new_elem);
 
-        // Run a BFS to relink candidates
+        // Run a BFS to relink previously notarized blocks
         std::list<ChainElement*>::iterator elem = queue.begin();
         while (elem != queue.end()) {
             for (ChainElement *child : (*elem)->links) {
@@ -405,30 +389,21 @@ void StreamletNodeV2::link_block(Candidate *cand, uint32_t id, uint32_t parent) 
             elem++;
         }
 
-        // longest_chain = queue.back()->index;
-
+        // Because queue is expanded in order of increasing BFS depth, the
+        // last element must contain the length of the longest notarized
+        // chain, although this chain is not necessarily unique
+        max_chainlen = queue.back()->index;
     }
+
+    // At this point we can backtrace over queue from all elements at the
+    // end that are at index max_chainlen and any element that isn't
+    // in a longest chain can be removed. The successors map owns the
+    // ChainElement so cleanup only requires erasing the entry from the map.
 
     successors_m.unlock();
-
-    // send out any votes here
 }
 
-void StreamletNodeV2::notarize_block(Candidate *cand, uint32_t id, uint32_t parent) {
-    /*successors_m.lock();
-    std::pair<std::unordered_map<uint64_t, std::list<Candidate*>>, bool> iter =
-        successors.emplace(id, std::list<Candidate*>{}); // only succeeds if not already present
-    successors[parent].push_back(elem);
-
-    // do dfs from here, updating longest index
-    for (Candidate *p : iter.second) {
-
-    }
-
-    successors_m.unlock();*/
-}
-
-void StreamletNodeV2::Run(system_clock::time_point epoch_sync) {
+void StreamletNodeV1::Run(system_clock::time_point epoch_sync) {
     // Build server and run
     std::string server_address{ local_addr };
 
@@ -495,7 +470,7 @@ int main(const int argc, const char *argv[]) {
         return 1;
     }
 
-    StreamletNodeV2 service{
+    StreamletNodeV1 service{
         id,
         peers,
         privkey,

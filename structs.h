@@ -86,10 +86,11 @@ struct ChainElement {
     // Index of this block in its chain
     uint64_t index;
 
-    Candidate *cand;
+    // The block
+    Block block;
 
     // Links to successors
     std::list<ChainElement*> links;
 
-    ChainElement() : epoch{0}, index{0}, cand{nullptr} { }
+    ChainElement() : epoch{0}, index{0}, block{} { }
 };
