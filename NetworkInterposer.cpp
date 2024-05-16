@@ -50,15 +50,35 @@ void NetworkInterposer::broadcast(const Vote& vote, grpc::CompletionQueue* cq) {
         // allocate and record a Pending somehwere, cleaned up when pulled from cq
         // in the service implementation
         // Pending req
+        // pending_set.insert(req);
+        Pending* pending_ptr = new Pending();
 
-        // stub[i]->AsyncProposeBlock(&req->context, vote, cq);
-        // or
-        // stub[i]->AsyncNotifyVote(&req->context, vote, cq);
-
+        // // stub[i]->AsyncProposeBlock(&req->context, vote, cq);
+        // // or
+        // // stub[i]->AsyncNotifyVote(&req->context, vote, cq);
+        std::unique_ptr< ::grpc::ClientAsyncResponseReader<Response>> rpc = stub[i]->AsyncNotifyVote(&pending_ptr->context, vote, cq);
         // get a bunch of these back
         // std::unique_ptr<grpc::ClientAsyncResponseReader<Response>> rpc
-
         // call finish to associated with tag
-        // rpc->Finish(&req->resp, &req->status, &req);
+        rpc->Finish(&pending_ptr->resp, &pending_ptr->status, (void *) pending_ptr);
+    }
+}
+
+void NetworkInterposer::broadcast(const Proposal& proposal, grpc::CompletionQueue* cq) {
+    for (size_t i = 0; i < stub.size(); i++) {
+        // allocate and record a Pending somehwere, cleaned up when pulled from cq
+        // in the service implementation
+        // Pending req
+        // pending_set.insert(req);
+        Pending* pending_ptr = new Pending();
+
+        // // stub[i]->AsyncProposeBlock(&req->context, vote, cq);
+        // // or
+        // // stub[i]->AsyncNotifyVote(&req->context, vote, cq);
+        std::unique_ptr< ::grpc::ClientAsyncResponseReader<Response>> rpc = stub[i]->AsyncProposeBlock(&pending_ptr->context, proposal, cq);
+        // get a bunch of these back
+        // std::unique_ptr<grpc::ClientAsyncResponseReader<Response>> rpc
+        // call finish to associated with tag
+        rpc->Finish(&pending_ptr->resp, &pending_ptr->status, (void *) pending_ptr);
     }
 }

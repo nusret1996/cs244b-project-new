@@ -48,8 +48,10 @@ public:
      * NetworkInterposer service that simulates network conditions.
      */
     void broadcast(const Vote& vote, grpc::CompletionQueue* cq);
+    void broadcast(const Proposal& proposal, grpc::CompletionQueue* cq);
 
 private:
     std::vector<std::shared_ptr<grpc::Channel>> channel;
     std::vector<std::unique_ptr<Streamlet::Stub>> stub;
+    std::unordered_set <std::unique_ptr<Pending>> pending_set;
 };
