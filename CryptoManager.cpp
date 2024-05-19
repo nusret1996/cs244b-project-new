@@ -35,14 +35,14 @@ void CryptoManager::sha256_of(const void *data, uint64_t bytes, std::string &has
     fill(hash.begin(), hash.end(), 0);
 }
 
-void CryptoManager::sign_sha256(const std::string &digest, std::string &sig) {
+void CryptoManager::sign_sha256(const std::string &digest, std::string *sig) {
     // to be implemented
 
     // for now priv == pub and a signature is priv concatenated
     // to itself to fill out a 64 byte value
-    sig.resize(2 * priv_key.size());
-    copy(priv_key.cbegin(), priv_key.cend(), sig.begin());
-    copy(priv_key.cbegin(), priv_key.cend(), sig.begin() + priv_key.size());
+    sig->resize(2 * priv_key.size());
+    copy(priv_key.cbegin(), priv_key.cend(), sig->begin());
+    copy(priv_key.cbegin(), priv_key.cend(), sig->begin() + priv_key.size());
 }
 
 bool CryptoManager::verify_signature(uint32_t node, const std::string &digest, const std::string &sig) {

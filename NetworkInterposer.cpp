@@ -53,9 +53,9 @@ void NetworkInterposer::broadcast(const Vote& vote, grpc::CompletionQueue* cq) {
         // pending_set.insert(req);
         Pending* pending_ptr = new Pending();
 
-        // // stub[i]->AsyncProposeBlock(&req->context, vote, cq);
-        // // or
-        // // stub[i]->AsyncNotifyVote(&req->context, vote, cq);
+        // stub[i]->AsyncProposeBlock(&req->context, vote, cq);
+        // or
+        // stub[i]->AsyncNotifyVote(&req->context, vote, cq);
         std::unique_ptr< ::grpc::ClientAsyncResponseReader<Response>> rpc = stub[i]->AsyncNotifyVote(&pending_ptr->context, vote, cq);
         // get a bunch of these back
         // std::unique_ptr<grpc::ClientAsyncResponseReader<Response>> rpc
@@ -72,9 +72,9 @@ void NetworkInterposer::broadcast(const Proposal& proposal, grpc::CompletionQueu
         // pending_set.insert(req);
         Pending* pending_ptr = new Pending();
 
-        // // stub[i]->AsyncProposeBlock(&req->context, vote, cq);
-        // // or
-        // // stub[i]->AsyncNotifyVote(&req->context, vote, cq);
+        // stub[i]->AsyncProposeBlock(&req->context, vote, cq);
+        // or
+        // stub[i]->AsyncNotifyVote(&req->context, vote, cq);
         std::unique_ptr< ::grpc::ClientAsyncResponseReader<Response>> rpc = stub[i]->AsyncProposeBlock(&pending_ptr->context, proposal, cq);
         // get a bunch of these back
         // std::unique_ptr<grpc::ClientAsyncResponseReader<Response>> rpc

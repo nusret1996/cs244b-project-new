@@ -83,6 +83,8 @@ public:
     void QueueTransactions();
 
 private:
+    void broadcast_vote(const Proposal* proposal, const std::string &hash);
+
     void notarize_block(const Block &note_block, uint32_t note_epoch, uint32_t par_epoch);
 
     NetworkInterposer network;
@@ -224,13 +226,9 @@ grpc::Status StreamletNodeV1::NotifyVote(
         // initialization and so will not indicate notarization a second time.
         if (remove) {
             delete cand;
-        } else if (votes == note_threshold) {
-            
-        }
-
-        // votes is 0 exactly when the message is a duplicate
-        if (!remove && votes > 0) {
-            // echo vote with network.broadcast()
+        } else if (votes > 0) {
+            // votes is 0 when the message is a duplicate or unanticipated, echo otherwise
+            network.broadcast(*vote, &req_queue);
         }
     }
 
@@ -374,14 +372,17 @@ grpc::Status StreamletNodeV1::ProposeBlock(
             // then call notarize_block() with the Candidate's block
             // then lock the Candidate, set the remove flag, record ref_count.load(std::memory_order_relaxed),
             // and then unlock, and finally deallocate the candidate if ref_count was zero
+
+            // but for now just notarize
+            notarize_block(proposal->block(), b_epoch, b_parent);
         }
 
-        // votes is 0 exactly when the message is a duplicate
+        // votes is 0 when the message is a duplicate or unanticipated, echo otherwise
         if (!remove && votes > 0) {
-            // echo proposal with network.broadcast()
+            network.broadcast(*proposal, &req_queue);
 
             if (b_epoch == cur_epoch && index_known) {
-                // send out our vote with network.broadcast()
+                broadcast_vote(proposal, hash);
             }
         }
     }
@@ -607,6 +608,22 @@ void StreamletNodeV1::Run(system_clock::time_point epoch_sync) {
 
     server->Shutdown();
     server->Wait();
+}
+
+void StreamletNodeV1::broadcast_vote(const Proposal* proposal, const std::string &hash) {
+    Vote v;
+    v.set_node(local_id);
+    v.set_parent(proposal->block().parent());
+    v.set_epoch(proposal->block().epoch());
+    v.set_hash(hash);
+
+    crypto.sign_sha256(hash, v.mutable_signature());
+
+    if (!v.IsInitialized()) {
+        std::cerr << "Missing fields on vote" << std::endl;
+    }
+
+    network.broadcast(v, &req_queue);
 }
 
 int main(const int argc, const char *argv[]) {
