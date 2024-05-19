@@ -89,8 +89,11 @@ struct ChainElement {
     // The block
     Block block;
 
+    // Link to parent
+    ChainElement* plink;
+
     // Links to successors
     std::list<ChainElement*> links;
 
-    ChainElement() : epoch{0}, index{0}, block{} { }
+    ChainElement(uint32_t e) : epoch{e}, index{0}, block{}, plink{nullptr} { }
 };

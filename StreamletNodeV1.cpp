@@ -102,16 +102,21 @@ private:
     // Mapping from a block to its dependents so that the chain can
     // be constructed with later blocks that were notarized first and
     // were waiting on a given earlier block
-    std::unordered_map<uint64_t, ChainElement> successors;
+    std::unordered_map<uint64_t, ChainElement*> successors;
 
     // Length of longest notarized chain, also guarded by successors_m
     uint64_t max_chainlen;
+
+    // Pointer to one past last finalized ChainElement in successors,
+    // which is the block at which to start notifying the client app
+    // of new finalizations, also guarded by successors_m
+    const ChainElement *last_finalized;
 
     // Mutex for successors
     std::mutex successors_m;
 
     // Genesis block
-    const ChainElement genesis_block;
+    ChainElement genesis_block;
 
     // Address of this server
     const std::string local_addr;
@@ -140,7 +145,7 @@ StreamletNodeV1::StreamletNodeV1(
     : network{peers},
     crypto{peers, priv, peers.at(id).key},
     max_chainlen{0},
-    genesis_block{},
+    genesis_block{0},
     local_addr{peers.at(id).addr},
     local_id{id},
     num_peers{static_cast<uint32_t>(peers.size())},
@@ -149,7 +154,10 @@ StreamletNodeV1::StreamletNodeV1(
     epoch_counter{0} {
 
     // Create entry for dependents of genesis block
-    successors.emplace(0, ChainElement{});
+    successors.emplace(0, &genesis_block);
+
+    // Set pointer once genesis block is constructed
+    last_finalized = &genesis_block;
 }
 
 StreamletNodeV1::~StreamletNodeV1() {
@@ -180,12 +188,12 @@ grpc::Status StreamletNodeV1::NotifyVote(
     // Pointer to candidate set only when the vote is in scope for the epoch
     Candidate *cand = nullptr;
 
-    candidates_m.lock();
-    std::unordered_map<uint64_t, Candidate*>::iterator iter
-            = candidates.find(b_epoch);
-
     // discard and ignore or report error if b_epoch > cur_epoch
     if (b_epoch <= cur_epoch) {
+        candidates_m.lock();
+        std::unordered_map<uint64_t, Candidate*>::iterator iter
+            = candidates.find(b_epoch);
+
         if (iter == candidates.end()) {
             cand = new Candidate{num_peers};
             candidates.emplace(b_epoch, cand);
@@ -193,9 +201,9 @@ grpc::Status StreamletNodeV1::NotifyVote(
             cand = iter->second;
         }
 
-        cand->ref_count.fetch_add(1, std::memory_order_relaxed); 
+        cand->ref_count.fetch_add(1, std::memory_order_relaxed);
+        candidates_m.unlock();
     }
-    candidates_m.unlock();
 
     if (cand != nullptr) {
         cand->m.lock();
@@ -251,22 +259,48 @@ grpc::Status StreamletNodeV1::ProposeBlock(
 
     // Check that the block extends the longest chain. Since messages can be delayed
     // and the proposal might not have been seen by the time a block is notarized,
-    // it is not always possible to check this. A propsal can be definitely ruled out
+    // it is not always possible to check this. A proposal can be definitely ruled out
     // if its parent's index is known and is less than the maximum notarized chain length.
     // Since a ChainElement's index is 0 when its position is not known, and the genesis
     // block's index is also 0, this definite condition is checked in two cases, one for
-    // when the parent block is the genesis block and one for when it is not.
+    // when the parent block is the genesis block and one for when it is not. The one
+    // other definite condition is when a proposed block's parent has an epoch number
+    // earlier than the most recent finalized block. This also ensures that when blocks
+    // not in the finalized chain are deleted in notarize_block() below, no later messages
+    // will allocate a new ChainElement for that parent.
+    bool outdated_length = false;
+    bool index_known = false;
     successors_m.lock();
-    std::unordered_map<uint64_t, ChainElement>::iterator iter
-        = successors.find(b_parent);
-
-    if (iter != successors.end() &&
-        ((b_parent != 0 && iter->second.index != 0 && iter->second.index < max_chainlen)
-            || (b_parent == 0 && max_chainlen > 0))) {
-                successors_m.unlock();
-                return grpc::Status::OK; // discard
+    if (b_parent < last_finalized->block.epoch()) {
+        outdated_length = true;
     } else {
-        successors_m.unlock();    
+        std::unordered_map<uint64_t, ChainElement*>::iterator iter
+            = successors.find(b_parent);
+
+        if (iter != successors.end() && b_parent != 0 && iter->second->index != 0) {
+            if (iter->second->index < max_chainlen) {
+                outdated_length = true;
+            } else {
+                index_known = true;
+            }
+        } else if (iter != successors.end() && b_parent == 0) {
+            if (max_chainlen > 0) {
+                outdated_length = true;
+            } else {
+                index_known = true;
+            }
+        }
+
+        // if (iter != successors.end() &&
+        //     ((b_parent != 0 && iter->second.index != 0 && iter->second.index < max_chainlen)
+        //     || (b_parent == 0 && max_chainlen > 0))) {
+        //         outdated_length = true;
+        // }
+    }
+    successors_m.unlock();
+
+    if (outdated_length) {
+        return grpc::Status::OK; // discard message
     }
 
     // Check that the block is a valid extension according to the application
@@ -279,9 +313,9 @@ grpc::Status StreamletNodeV1::ProposeBlock(
     uint32_t votes = 0;
     Candidate *cand = nullptr;
 
-    candidates_m.lock();
     // discard and ignore or report error if b_epoch > cur_epoch
     if (b_epoch <= cur_epoch) {
+        candidates_m.lock();
         std::unordered_map<uint64_t, Candidate*>::iterator iter
             = candidates.find(b_epoch);
 
@@ -292,9 +326,9 @@ grpc::Status StreamletNodeV1::ProposeBlock(
             cand = iter->second;
         }
 
-        cand->ref_count.fetch_add(1, std::memory_order_relaxed);        
+        cand->ref_count.fetch_add(1, std::memory_order_relaxed);
+        candidates_m.unlock();
     }
-    candidates_m.unlock();
 
     if (cand != nullptr) {
         // An empty hash means the proposal has not yet been seen. If it has been
@@ -303,10 +337,18 @@ grpc::Status StreamletNodeV1::ProposeBlock(
         if (cand->hash.empty()) {
             cand->hash = hash;
 
-            votes = 2; // Count proposer's vote and our vote here
+            // Proposer's vote is always recorded below. Add the local vote if the epoch
+            // matches and the chain length has been verified. Otherwise, only count
+            // the proposers vote,
+            if (b_epoch == cur_epoch && index_known) {
+                votes = 2;
+                cand->voters[local_id] = true;
+            } else {
+                votes = 1;
+            }
 
             cand->voters[proposer] = true;
-            cand->voters[local_id] = true;
+
             for (std::pair<const uint32_t, std::string> &p : cand->vote_hashes) {
                 if (p.second == hash) {
                     cand->voters[p.first] = true;
@@ -338,7 +380,9 @@ grpc::Status StreamletNodeV1::ProposeBlock(
         if (!remove && votes > 0) {
             // echo proposal with network.broadcast()
 
-            // send out our vote with network.broadcast()
+            if (b_epoch == cur_epoch && index_known) {
+                // send out our vote with network.broadcast()
+            }
         }
     }
 
@@ -350,57 +394,169 @@ grpc::Status StreamletNodeV1::ProposeBlock(
  */
 void StreamletNodeV1::notarize_block(const Block &note_block, uint32_t note_epoch, uint32_t par_epoch) {
     std::list<ChainElement*> queue;
+    const ChainElement *prev_finalized = nullptr;
+    const ChainElement *new_finalized = nullptr;
 
     successors_m.lock();
 
-    // std::pair<std::unordered_map<uint64_t, ChainElement>::iterator, bool> new_ins =
-    //     successors.emplace(note_epoch, ChainElement{});
-
-    ChainElement &new_elem = successors[note_epoch];
-    if (new_elem.epoch == 0) {
-        new_elem.epoch = note_epoch; // ChainElement was newly constructed
-        new_elem.block.CopyFrom(note_block);
-    } else if (!new_elem.block.IsInitialized()) {
-        new_elem.block.CopyFrom(note_block); // ChainElement already existed but block was previously not notarized
+    ChainElement *&p_elem = successors[par_epoch];
+    if (p_elem == nullptr) {
+        p_elem = new ChainElement{par_epoch};
     }
 
-    ChainElement &p_elem = successors[par_epoch];
-    if (p_elem.epoch == 0 && par_epoch != 0) {
-        p_elem.epoch = par_epoch; // parent ChainElement was also constructed
+    ChainElement *&new_elem = successors[note_epoch];
+    if (new_elem == nullptr) {
+        new_elem = new ChainElement{note_epoch};
+        new_elem->block.CopyFrom(note_block);
+    } else if (!new_elem->block.IsInitialized()) {
+        // ChainElement already existed but block was previously not notarized
+        new_elem->block.CopyFrom(note_block);
     }
 
-    p_elem.links.push_back(&new_elem);
+    new_elem->plink = p_elem;
+
+    p_elem->links.push_back(new_elem);
+
+    // If a finalization is detected, this is set to reference the last element
+    // of a sequence of three or more contiguous epochs
+    std::list<ChainElement*>::iterator finalize_end = queue.end();
 
     // If the parent is already linked into the chain, or the parent is the genesis
     // block, then set the chain index of new_elem and look for any children
     // that can be linked and check if they extend the longest chain at their position.
-    if (p_elem.index != 0 || par_epoch == 0) {
-        new_elem.index = p_elem.index + 1;
+    if (p_elem->index != 0 || par_epoch == 0) {
+        new_elem->index = p_elem->index + 1;
 
-        queue.push_back(&new_elem);
+        queue.push_back(new_elem);
 
-        // Run a BFS to relink previously notarized blocks
-        std::list<ChainElement*>::iterator elem = queue.begin();
-        while (elem != queue.end()) {
-            for (ChainElement *child : (*elem)->links) {
-                child->index = (*elem)->index + 1;
-                queue.push_back(child);
-            }
-            elem++;
+        // Check whether new_elem itself ends a finalized chain
+        if (new_elem->epoch == p_elem->epoch + 1
+            && (p_elem->plink != nullptr && p_elem->epoch == p_elem->plink->epoch + 1)) {
+            finalize_end = queue.begin();
         }
 
+        // Run a BFS to relink previously notarized blocks and detect finalization
+        std::list<ChainElement*>::iterator queue_iter = queue.begin();
+        while (queue_iter != queue.end()) {
+            const ChainElement *elem = *queue_iter;
+            bool parent_contiguous = elem->epoch == elem->plink->epoch + 1;
+
+            for (ChainElement *child : elem->links) {
+                child->index = elem->index + 1;
+
+                queue.push_back(child);
+
+                // If the child's epoch is contiguous with its parent's, and the parent
+                // was contiguous with the grandparent, then the child is now the first
+                // non-finalized element.
+                if (parent_contiguous && child->epoch == elem->epoch + 1) {
+                    finalize_end = --queue.end();
+                }
+            }
+
+            ++queue_iter;
+        }
+    }
+
+    queue.clear();
+
+    if (finalize_end != queue.end()) {
         // Because queue is expanded in order of increasing BFS depth, the
         // last element must contain the length of the longest notarized
         // chain, although this chain is not necessarily unique
         max_chainlen = queue.back()->index;
+
+        std::list<ChainElement*>::iterator queue_iter = queue.end();
+
+        // In this branch, since finalize_end was set, its plink is known
+        // not to be null as is its grandparent (plink->plink), so that
+        // the first iteration of the loop below is safe
+        ChainElement *elem = (*finalize_end)->plink;
+
+        while (elem != last_finalized && elem->index != 0) {
+            ChainElement *p = elem->plink;
+            std::list<ChainElement*>::iterator pchild = p->links.begin();
+            std::list<ChainElement*>::iterator rm;
+            while (pchild != p->links.end()) {
+                if (*pchild != elem) {
+                    queue.push_back(*pchild);
+                    rm = pchild;
+                    ++pchild;
+                    p->links.erase(rm);
+                } else {
+                    ++pchild;
+                }
+            }
+
+            // queue_iter will still be queue.end() on next iteration
+            // if nothing was added to queue
+            if (queue_iter == queue.end()) {
+                queue_iter = queue.begin();
+            } else {
+                ++queue_iter;
+            }
+
+            // Run a BFS over the added elements to collect all elements
+            // that are known not to be in the finalized chain
+            while (queue_iter != queue.end()) {
+                for (ChainElement *child : (*queue_iter)->links) {
+                    queue.push_back(child);
+                }
+                ++queue_iter;
+            }
+
+            // Move iterator back to last element in queue so that it can
+            // continue from the given position to newly added elements
+            // in the next iteration of the outer while loop
+            --queue_iter;
+
+            elem = p;
+        }
+
+        if (elem == last_finalized) {
+            prev_finalized = last_finalized;
+
+            // The last finalized element is second to last element
+            // in the contiguous sequence of epochs
+            last_finalized = (*finalize_end)->plink;
+
+            new_finalized = last_finalized;
+
+            // Remove outdated chains from the successors map
+            for (ChainElement *rm : queue) {
+                successors.erase(rm->epoch);
+            }
+        }
     }
 
-    // At this point we can backtrace over queue from all elements at the
-    // end that are at index max_chainlen and any element that isn't
-    // in a longest chain can be removed. The successors map owns the
-    // ChainElement so cleanup only requires erasing the entry from the map.
-
     successors_m.unlock();
+
+    if (prev_finalized != nullptr) {
+        // Deletion can be done outside the lock since elements are deleted
+        // only when last_finalized has been updated, so no later blocks
+        // can be notarized on any chain not extending from the new last
+        // finalized block.
+        for (ChainElement *elem : queue) {
+            delete elem;
+        }
+
+        // Notify state machine client of finalized transactions. Similar to
+        // the above, no new messages will change the state of these elements.
+        // Moreover, notification is read-only, so notification does not require
+        // taking hold of the lock. There also should be only one child per
+        // element in the finalized chain, and the notifications begin from the
+        // child of the previous last finalized element.
+        if (prev_finalized->links.size() != 1) {
+            std::cerr << "Finalized chain does not consist of single children" << std::endl;
+        }
+
+        do {
+            prev_finalized = prev_finalized->links.front();
+
+            // clinet->TransactionsFinalized(prev_finalized->block().txns());
+
+        } while (prev_finalized != new_finalized);
+    }
 }
 
 void StreamletNodeV1::Run(system_clock::time_point epoch_sync) {
