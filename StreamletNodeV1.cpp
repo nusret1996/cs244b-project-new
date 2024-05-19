@@ -577,6 +577,7 @@ void StreamletNodeV1::Run(system_clock::time_point epoch_sync) {
     while (status != grpc::CompletionQueue::NextStatus::SHUTDOWN) {
         // Always check if the epoch advanced
         system_clock::time_point t_now = system_clock::now();
+
         if ((t_now - epoch_sync) >= epoch_duration) {
             epoch_sync += epoch_duration;
 
@@ -598,6 +599,7 @@ void StreamletNodeV1::Run(system_clock::time_point epoch_sync) {
             // optionally check status and response (currently an empty struct)
 
             // cleanup code here
+            delete req;
         }
 
         status = req_queue.AsyncNext(&tag, &ok, epoch_sync);
