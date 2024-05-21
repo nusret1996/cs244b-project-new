@@ -16,6 +16,7 @@
 #include "utils.h"
 #include "NetworkInterposer.h"
 #include "CryptoManager.h"
+#include "KeyValueStateMachine.cpp"
 
 using std::chrono::system_clock;
 
@@ -44,7 +45,8 @@ public:
         uint32_t id,
         const std::vector<Peer> &peers,
         const Key &priv,
-        const std::chrono::milliseconds &epoch_len
+        const std::chrono::milliseconds &epoch_len,
+        ReplicatedStateMachine *rsm_client
     );
 
     ~StreamletNodeV1();
@@ -91,6 +93,8 @@ private:
 
     CryptoManager crypto;
 
+    ReplicatedStateMachine* client;
+
     // Completion queue for outbound RPCs
     grpc::CompletionQueue req_queue;
 
@@ -108,6 +112,8 @@ private:
 
     // Length of longest notarized chain, also guarded by successors_m
     uint64_t max_chainlen;
+    // last element of longest notarized chain (not necessarily unique), also guarded by successors_m
+    const ChainElement *last_chainlen;
 
     // Pointer to one past last finalized ChainElement in successors,
     // which is the block at which to start notifying the client app
@@ -143,9 +149,11 @@ StreamletNodeV1::StreamletNodeV1(
     uint32_t id,
     const std::vector<Peer> &peers,
     const Key &priv,
-    const std::chrono::milliseconds &epoch_len)
+    const std::chrono::milliseconds &epoch_len,
+    ReplicatedStateMachine *rsm_client)
     : network{peers},
     crypto{peers, priv, peers.at(id).key},
+    client{rsm_client},
     max_chainlen{0},
     genesis_block{0},
     local_addr{peers.at(id).addr},
@@ -153,7 +161,8 @@ StreamletNodeV1::StreamletNodeV1(
     num_peers{static_cast<uint32_t>(peers.size())},
     note_threshold{((num_peers + 2) / 3) * 2},
     epoch_duration{std::chrono::duration_cast<system_clock::duration>(epoch_len)},
-    epoch_counter{0} {
+    epoch_counter{0}
+     {
 
     // Create entry for dependents of genesis block
     successors.emplace(0, &genesis_block);
@@ -303,9 +312,9 @@ grpc::Status StreamletNodeV1::ProposeBlock(
 
     // Check that the block is a valid extension according to the application
     // by invoking a callback on the ReplicatedStateMachine.
-    // if () {
-
-    // }
+    if (!client->ValidateTransaction(proposal->block().txns())) {
+        return grpc::Status::OK; // discard message
+    }
 
     bool remove = false;
     uint32_t votes = 0;
@@ -394,6 +403,8 @@ grpc::Status StreamletNodeV1::ProposeBlock(
  * notarize_block must be called only once for a given block/epoch id.
  */
 void StreamletNodeV1::notarize_block(const Block &note_block, uint32_t note_epoch, uint32_t par_epoch) {
+    client->TransactionsNotarized(note_block.txns());
+
     std::list<ChainElement*> queue;
     const ChainElement *prev_finalized = nullptr;
     const ChainElement *new_finalized = nullptr;
@@ -465,8 +476,9 @@ void StreamletNodeV1::notarize_block(const Block &note_block, uint32_t note_epoc
         // Because queue is expanded in order of increasing BFS depth, the
         // last element must contain the length of the longest notarized
         // chain, although this chain is not necessarily unique
-        max_chainlen = queue.back()->index;
 
+        max_chainlen = queue.back()->index;
+        last_chainlen = queue.back();
         std::list<ChainElement*>::iterator queue_iter = queue.end();
 
         // In this branch, since finalize_end was set, its plink is known
@@ -554,7 +566,7 @@ void StreamletNodeV1::notarize_block(const Block &note_block, uint32_t note_epoc
         do {
             prev_finalized = prev_finalized->links.front();
 
-            // clinet->TransactionsFinalized(prev_finalized->block().txns());
+            client->TransactionsFinalized(prev_finalized->block.txns());
 
         } while (prev_finalized != new_finalized);
     }
@@ -589,6 +601,18 @@ void StreamletNodeV1::Run(system_clock::time_point epoch_sync) {
 
             if (crypto.hash_epoch(epoch_counter.load()) == local_id) {
                 // run leader logic
+                // propose block
+                Proposal p;
+                std::string hash;
+                crypto.hash_block(&last_chainlen->block, hash);
+                p.set_node(local_id);
+                // tood: add signature when crypto library done
+                // p.set_signature();
+                p.mutable_block()->set_parent(max_chainlen);
+                p.mutable_block()->set_phash(hash);
+                p.mutable_block()->set_epoch(epoch_counter.load());
+                p.mutable_block()->set_txns(client->GetTransactions());
+                network.broadcast(p, &req_queue);
             }
         }
 
@@ -644,29 +668,31 @@ int main(const int argc, const char *argv[]) {
         std::cerr << "Configuration in " << argv[3] << " is malformed" << std::endl;
         return 1;
     }
+    KeyValueStateMachine();
+    ReplicatedStateMachine* rsm = new KeyValueStateMachine();
+    // StreamletNodeV1 service{
+    //     id,
+    //     peers,
+    //     privkey,
+    //     std::chrono::milliseconds{epoch},
+    //     rsm
+    // };
 
-    StreamletNodeV1 service{
-        id,
-        peers,
-        privkey,
-        std::chrono::milliseconds{epoch}
-    };
+    // // Run this as close to service.Run() as possible
+    // system_clock::time_point sync_start;
+    // status = sync_time(argv[1], sync_start);
 
-    // Run this as close to service.Run() as possible
-    system_clock::time_point sync_start;
-    status = sync_time(argv[1], sync_start);
+    // if (status == 1) {
+    //     std::cerr << "Start time must be a valid HH:MM:SS" << std::endl;
+    //     return 1;
+    // } else if (status == 2) {
+    //     std::cerr << "Start time already passed" << std::endl;
+    //     return 1;
+    // }
 
-    if (status == 1) {
-        std::cerr << "Start time must be a valid HH:MM:SS" << std::endl;
-        return 1;
-    } else if (status == 2) {
-        std::cerr << "Start time already passed" << std::endl;
-        return 1;
-    }
+    // std::cout << "Running as node " << id << " at " << peers[id].addr << std::endl;
 
-    std::cout << "Running as node " << id << " at " << peers[id].addr << std::endl;
-
-    service.Run(sync_start);
+    // service.Run(sync_start);
 
     return 0;
 }

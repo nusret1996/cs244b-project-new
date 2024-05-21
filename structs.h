@@ -6,10 +6,12 @@
 // which implement the replicated state machine
 class ReplicatedStateMachine {
 public:
-    virtual ~ReplicatedStateMachine() = 0;
-    virtual void TransactionsFinalized(/* Binary transaction blob */) = 0;
-    virtual void TransactionsNotarized(/* Blocks */) = 0;
-    virtual bool ValidateTransaction(/* Binary transaction blob */);
+    ReplicatedStateMachine(){};
+    virtual ~ReplicatedStateMachine(){};
+    virtual void TransactionsFinalized(std::string) = 0;
+    virtual void TransactionsNotarized(std::string) = 0;
+    virtual bool ValidateTransaction(std::string) = 0;
+    virtual std::string GetTransactions() = 0;
 };
 
 // 256 bit key for P-256/secp256r1
