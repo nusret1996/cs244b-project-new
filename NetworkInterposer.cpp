@@ -5,6 +5,7 @@ NetworkInterposer::NetworkInterposer(const std::vector<Peer> &peers) {
     bool error = false;
 
     for (const Peer &remote : peers) {
+        std::cout << "setting up stub with remote " << remote.addr << std::endl;
         channel.emplace_back(grpc::CreateChannel(remote.addr, grpc::InsecureChannelCredentials()));
 
         // Check returned channel isn't nullptr
@@ -65,7 +66,9 @@ void NetworkInterposer::broadcast(const Vote& vote, grpc::CompletionQueue* cq) {
 }
 
 void NetworkInterposer::broadcast(const Proposal& proposal, grpc::CompletionQueue* cq) {
+    std::cout << "networkinterposer broadcast proposal" << std::endl;
     for (size_t i = 0; i < stub.size(); i++) {
+        // std::cout << "network interporser broadcast i " << i << std::endl;
         // allocate and record a Pending somehwere, cleaned up when pulled from cq
         // in the service implementation
         // Pending req
@@ -75,10 +78,12 @@ void NetworkInterposer::broadcast(const Proposal& proposal, grpc::CompletionQueu
         // stub[i]->AsyncProposeBlock(&req->context, vote, cq);
         // or
         // stub[i]->AsyncNotifyVote(&req->context, vote, cq);
-        std::unique_ptr< ::grpc::ClientAsyncResponseReader<Response>> rpc = stub[i]->AsyncProposeBlock(&pending_ptr->context, proposal, cq);
+        // std::unique_ptr< ::grpc::ClientAsyncResponseReader<Response>> rpc = stub[i]->AsyncProposeBlock(&pending_ptr->context, proposal, cq);
+        // std::cout << "calling async propose block" << std::endl;
+        pending_ptr->rpc_ptr = stub[i]->AsyncProposeBlock(&pending_ptr->context, proposal, cq);;
         // get a bunch of these back
         // std::unique_ptr<grpc::ClientAsyncResponseReader<Response>> rpc
         // call finish to associated with tag
-        rpc->Finish(&pending_ptr->resp, &pending_ptr->status, (void *) pending_ptr);
+        pending_ptr->rpc_ptr->Finish(&pending_ptr->resp, &pending_ptr->status, (void *) pending_ptr);
     }
 }

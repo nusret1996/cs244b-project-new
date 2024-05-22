@@ -16,7 +16,7 @@
 #include "utils.h"
 #include "NetworkInterposer.h"
 #include "CryptoManager.h"
-#include "KeyValueStateMachine.cpp"
+#include "KeyValueStateMachine.h"
 
 using std::chrono::system_clock;
 
@@ -169,6 +169,7 @@ StreamletNodeV1::StreamletNodeV1(
 
     // Set pointer once genesis block is constructed
     last_finalized = &genesis_block;
+    last_chainlen = &genesis_block;
 }
 
 StreamletNodeV1::~StreamletNodeV1() {
@@ -255,12 +256,14 @@ grpc::Status StreamletNodeV1::ProposeBlock(
     const uint32_t proposer = proposal->node();
 
     if (proposer != crypto.hash_epoch(cur_epoch)) {
+        std::cout << "from previous epoch, discard" << std::endl;
         return grpc::Status::OK; // discard message
     }
 
     std::string hash;
     crypto.hash_block(&proposal->block(), hash);
     if (!crypto.verify_signature(proposer, hash, proposal->signature())) {
+        std::cout << "crypto verify signature failed, discard" << std::endl;
         return grpc::Status::OK; // discard message
     }
 
@@ -307,12 +310,14 @@ grpc::Status StreamletNodeV1::ProposeBlock(
     successors_m.unlock();
 
     if (outdated_length) {
+        std::cout << "does not extend longest chain, discard" << std::endl;
         return grpc::Status::OK; // discard message
     }
 
     // Check that the block is a valid extension according to the application
     // by invoking a callback on the ReplicatedStateMachine.
     if (!client->ValidateTransaction(proposal->block().txns())) {
+        std::cout << "RSM validate transaction failed, discard" << std::endl;
         return grpc::Status::OK; // discard message
     }
 
@@ -362,7 +367,6 @@ grpc::Status StreamletNodeV1::ProposeBlock(
                     votes++;
                 }
             }
-
             cand->votes = votes;
             cand->vote_hashes.clear();
 
@@ -376,7 +380,7 @@ grpc::Status StreamletNodeV1::ProposeBlock(
         // be applied a second time if the message is a duplicate since votes is 0.
         if (remove) {
             delete cand;
-        } else if (votes == note_threshold) {
+        } else if (votes >= note_threshold) {
             // can lock candidates map, remove from map, add entry to some "finished" set, and then unlock
             // then call notarize_block() with the Candidate's block
             // then lock the Candidate, set the remove flag, record ref_count.load(std::memory_order_relaxed),
@@ -472,7 +476,9 @@ void StreamletNodeV1::notarize_block(const Block &note_block, uint32_t note_epoc
 
     queue.clear();
 
+    std::cout << "before if statement" << std::endl;
     if (finalize_end != queue.end()) {
+        std::cout << "check for finalize" << std::endl;
         // Because queue is expanded in order of increasing BFS depth, the
         // last element must contain the length of the longest notarized
         // chain, although this chain is not necessarily unique
@@ -593,7 +599,6 @@ void StreamletNodeV1::Run(system_clock::time_point epoch_sync) {
 
         if ((t_now - epoch_sync) >= epoch_duration) {
             epoch_sync += epoch_duration;
-
             // Since the increment specifies relaxed memory order, be careful
             // that no code below this statement changes other data shared among
             // threads that must be sequenced with epoch_counter.
@@ -668,31 +673,30 @@ int main(const int argc, const char *argv[]) {
         std::cerr << "Configuration in " << argv[3] << " is malformed" << std::endl;
         return 1;
     }
-    KeyValueStateMachine();
-    ReplicatedStateMachine* rsm = new KeyValueStateMachine();
-    // StreamletNodeV1 service{
-    //     id,
-    //     peers,
-    //     privkey,
-    //     std::chrono::milliseconds{epoch},
-    //     rsm
-    // };
+    ReplicatedStateMachine* rsm = new KeyValueStateMachine(id);
+    StreamletNodeV1 service{
+        id,
+        peers,
+        privkey,
+        std::chrono::milliseconds{epoch},
+        rsm
+    };
 
-    // // Run this as close to service.Run() as possible
-    // system_clock::time_point sync_start;
-    // status = sync_time(argv[1], sync_start);
+    // Run this as close to service.Run() as possible
+    system_clock::time_point sync_start;
+    status = sync_time(argv[1], sync_start);
 
-    // if (status == 1) {
-    //     std::cerr << "Start time must be a valid HH:MM:SS" << std::endl;
-    //     return 1;
-    // } else if (status == 2) {
-    //     std::cerr << "Start time already passed" << std::endl;
-    //     return 1;
-    // }
+    if (status == 1) {
+        std::cerr << "Start time must be a valid HH:MM:SS" << std::endl;
+        return 1;
+    } else if (status == 2) {
+        std::cerr << "Start time already passed" << std::endl;
+        return 1;
+    }
 
-    // std::cout << "Running as node " << id << " at " << peers[id].addr << std::endl;
+    std::cout << "Running as node " << id << " at " << peers[id].addr << std::endl;
 
-    // service.Run(sync_start);
+    service.Run(sync_start);
 
     return 0;
 }
