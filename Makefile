@@ -1,9 +1,17 @@
-.PHONY: protos
+.PHONY: v1 protos
 
-override CXXFLAGS += -std=c++14
+GRPC_CFLAGS := $(shell pkg-config --cflags grpc++_unsecure)
+GRPC_LIBS := $(shell pkg-config --libs grpc++_unsecure)
+PROTOBUF_CFLAGS := $(shell pkg-config --cflags protobuf)
+PROTOBUF_LIBS := $(shell pkg-config --libs protobuf)
 
-v1: StreamletNodeV1.o NetworkInterposer.o CryptoManager.o utils.o streamlet.pb.o streamlet.grpc.pb.o
-	$(CXX) -o StreamletNodeV1 $(CXXFLAGS) -lgrpc++_unsecure -lgrpc++_reflection -lprotobuf $^
+override CXXFLAGS += -std=c++14 $(GRPC_CFLAGS) $(PROTOBUF_CFLAGS)
+
+v1: StreamletNodeV1.o NetworkInterposer.o CryptoManager.o utils.o streamlet.pb.o streamlet.grpc.pb.o KeyValueStateMachine.o
+	$(CXX) -o StreamletNodeV1 $(CXXFLAGS) $(GRPC_LIBS) $(PROTOBUF_LIBS) $^
+
+notarization_test: notarization_test.o streamlet.pb.o
+	$(CXX) -o notarization_test $(CXXFLAGS) $(PROTOBUF_LIBS) $^
 
 protos: streamlet.pb.o streamlet.grpc.pb.o
 

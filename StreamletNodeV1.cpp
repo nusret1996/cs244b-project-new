@@ -21,15 +21,14 @@
 using std::chrono::system_clock;
 
 /*
- * Implements the Streamlet protocol in which votes are allowed to arrive after
- * the epoch in which a block is proposed. However, epochs still track physical
- * time, and in particular, a new block cannot be proposed until the duration
- * of physical time corresponding to an epoch has elapsed, even if the block
- * proposed in a prior epoch has been notarized.
+ * Implements the Streamlet protocol in which votes are allowed to arrive after the epoch in
+ * which a block is proposed. However, epochs still track physical time, and in particular,
+ * a new block cannot be proposed until the duration of physical time corresponding to an
+ * epoch has elapsed, even if the block proposed in a prior epoch has been notarized.
  *
- * The service implements the RPC server using the synchronous interface
- * and acts as an RPC client using the asynchronous interface so that
- * broadcasts to other nodes do not block request processing.
+ * The service implements the RPC server using the synchronous interface and acts as an RPC
+ * client using the asynchronous interface so that broadcasts to other nodes do not block
+ * request processing.
  */
 class StreamletNodeV1 : public Streamlet::Service {
 public:
@@ -87,7 +86,41 @@ public:
 private:
     void broadcast_vote(const Proposal* proposal, const std::string &hash);
 
-    void notarize_block(const Block &note_block, uint32_t note_epoch, uint32_t par_epoch);
+    /*
+     * Links block proposed in note_epoch to the notarized chain under parent proposed in par_epoch.
+     * Called from ProposeBlock once the block contents are known. This should only be called once
+     * for a given note_epoch once the block for that epoch gains enough votes.
+     *
+     * Notarization of a block is recorded by storing a pointer to a ChainElement that has its
+     * block fields filled into successors. If a block's parent has not been notarized, then a
+     * placeholder ChainElement is constructed with only the parent's epoch number and a pointer
+     * to it is stored into successors. This allows later notarizations to be recorded and later
+     * relinked as the predecessors get notarized.
+     *
+     * If the chain index of the notarized block is known, which is the case if its parent has already
+     * been notarized and the same holds inductively stretching back to the genesis block, a BFS is
+     * run from the notarized block over its successors to update their chain indexes. Any prior notarized
+     * blocks that have formed a "floating" part of the chain have their chain indexes updated in this way
+     * and this is also how max_chainlen is tracked and updated. This BFS procedure maintains the invariant
+     * that a block's chain position is known if and only if its parent's is known.
+     * 
+     * Finalization is also detected during the BFS. If a finalization is detected during BFS, a walk
+     * backwards up the chain is made. If last_finalized can be reached, then it is known that the
+     * finalized chain is not missing any notarizations, and any branches extending from blocks in the
+     * finalized chain that are not part of the finalized chain are removed (via repeated BFS as the
+     * walk progresses up the chain). ChainElements on these branches are garbage collected, and future
+     * RPCs will know to discard messages for that block (including additional votes, which are no
+     * longer needed). The distributed application's (client's) callback is then invoked for each newly
+     * finalized block after last_finalized, which is also updated to the latest finalized block.
+     * Otherwise, there is at least one block on the finalized chain whose notarization has not yet been
+     * seen, and last_finalized remains unchanged.
+     */
+    void notarize_block(
+        const Block &note_block,
+        const std::string &note_hash,
+        uint64_t note_epoch,
+        uint64_t par_epoch
+    );
 
     NetworkInterposer network;
 
@@ -112,7 +145,9 @@ private:
 
     // Length of longest notarized chain, also guarded by successors_m
     uint64_t max_chainlen;
-    // last element of longest notarized chain (not necessarily unique), also guarded by successors_m
+
+    // last element of longest notarized chain (not necessarily unique),
+    // also guarded by successors_m
     const ChainElement *last_chainlen;
 
     // Pointer to one past last finalized ChainElement in successors,
@@ -162,10 +197,12 @@ StreamletNodeV1::StreamletNodeV1(
     note_threshold{((num_peers + 2) / 3) * 2},
     epoch_duration{std::chrono::duration_cast<system_clock::duration>(epoch_len)},
     epoch_counter{0}
-     {
-
+    {
     // Create entry for dependents of genesis block
     successors.emplace(0, &genesis_block);
+
+    // Set the hash of the empty block
+    crypto.hash_block(&genesis_block.block, genesis_block.hash);
 
     // Set pointer once genesis block is constructed
     last_finalized = &genesis_block;
@@ -194,7 +231,7 @@ grpc::Status StreamletNodeV1::NotifyVote(
     bool remove = false;
 
     // The number of votes including the vote from the message being
-    // processed, if it is valid
+    // processed if it is valid
     uint32_t votes = 0;
 
     // Pointer to candidate set only when the vote is in scope for the epoch
@@ -290,13 +327,13 @@ grpc::Status StreamletNodeV1::ProposeBlock(
         if (iter != successors.end() && b_parent != 0 && iter->second->index != 0) {
             if (iter->second->index < max_chainlen) {
                 outdated_length = true;
-            } else {
+            } else if (iter->second->hash == proposal->block().phash()) {
                 index_known = true;
-            }
+            } // else the parent hash did not match so do not vote
         } else if (iter != successors.end() && b_parent == 0) {
             if (max_chainlen > 0) {
                 outdated_length = true;
-            } else {
+            } else if (iter->second->hash == proposal->block().phash()) {
                 index_known = true;
             }
         }
@@ -387,7 +424,7 @@ grpc::Status StreamletNodeV1::ProposeBlock(
             // and then unlock, and finally deallocate the candidate if ref_count was zero
 
             // but for now just notarize
-            notarize_block(proposal->block(), b_epoch, b_parent);
+            notarize_block(proposal->block(), hash, b_epoch, b_parent);
         }
 
         // votes is 0 when the message is a duplicate or unanticipated, echo otherwise
@@ -403,17 +440,33 @@ grpc::Status StreamletNodeV1::ProposeBlock(
     return grpc::Status::OK;
 }
 
-/*
- * notarize_block must be called only once for a given block/epoch id.
- */
-void StreamletNodeV1::notarize_block(const Block &note_block, uint32_t note_epoch, uint32_t par_epoch) {
+void StreamletNodeV1::notarize_block(
+    const Block &note_block,
+    const std::string &note_hash,
+    uint64_t note_epoch,
+    uint64_t par_epoch
+) {
     client->TransactionsNotarized(note_block.txns());
 
     std::list<ChainElement*> queue;
     const ChainElement *prev_finalized = nullptr;
-    const ChainElement *new_finalized = nullptr;
+    ChainElement *new_finalized = nullptr;
+
+    if (note_epoch == 0) {
+        std::cerr << "Genesis block should never be passed to notarize_block" << std::endl;
+        return;
+    }
 
     successors_m.lock();
+
+    // In the time that ProposeBlock was running, it is possible that a block on a different branch
+    // has extended the finalized chain, in which case a ChainElement for note_epoch must not be
+    // constructed because the ChainElement at par_epoch has been deleted and the new ChainElement
+    // would not later be garbage collected.
+    if (par_epoch < last_finalized->block.epoch()) {
+        successors_m.unlock();
+        return;
+    }
 
     ChainElement *&p_elem = successors[par_epoch];
     if (p_elem == nullptr) {
@@ -424,9 +477,15 @@ void StreamletNodeV1::notarize_block(const Block &note_block, uint32_t note_epoc
     if (new_elem == nullptr) {
         new_elem = new ChainElement{note_epoch};
         new_elem->block.CopyFrom(note_block);
-    } else if (!new_elem->block.IsInitialized()) {
+        new_elem->hash = note_hash;
+    } else if (new_elem->index == 0) {
         // ChainElement already existed but block was previously not notarized
         new_elem->block.CopyFrom(note_block);
+        new_elem->hash = note_hash;
+    } else {
+        successors_m.unlock();
+        std::cerr << "Duplicate attempt to notarize block " << note_epoch << std::endl;
+        return;
     }
 
     new_elem->plink = p_elem;
@@ -472,30 +531,37 @@ void StreamletNodeV1::notarize_block(const Block &note_block, uint32_t note_epoc
 
             ++queue_iter;
         }
-    }
 
-    queue.clear();
-
-    std::cout << "before if statement" << std::endl;
-    if (finalize_end != queue.end()) {
-        std::cout << "check for finalize" << std::endl;
         // Because queue is expanded in order of increasing BFS depth, the
         // last element must contain the length of the longest notarized
         // chain, although this chain is not necessarily unique
-
-        max_chainlen = queue.back()->index;
         last_chainlen = queue.back();
+        max_chainlen = last_chainlen->index;
+    }
+
+    if (finalize_end != queue.end()) {
+        // The last finalized element is second to last element in the
+        // contiguous sequence of epochs. This will be used to update
+        // last_finalized below if the tail of the finalized chain can
+        // be walked all the way back to last_finalized.
+        new_finalized = (*finalize_end)->plink;
+
+        queue.clear();
+
         std::list<ChainElement*>::iterator queue_iter = queue.end();
 
         // In this branch, since finalize_end was set, its plink is known
-        // not to be null as is its grandparent (plink->plink), so that
-        // the first iteration of the loop below is safe
-        ChainElement *elem = (*finalize_end)->plink;
+        // not to be null as is its grandparent (*finalize_end)->plink->plink,
+        // so that the first iteration of the loop below is safe
+        ChainElement *elem = new_finalized;
 
         while (elem != last_finalized && elem->index != 0) {
             ChainElement *p = elem->plink;
             std::list<ChainElement*>::iterator pchild = p->links.begin();
             std::list<ChainElement*>::iterator rm;
+
+            // This loop pushes siblings of elem, which are now known not to be
+            // in the finalized chain, into queue to be deleted below
             while (pchild != p->links.end()) {
                 if (*pchild != elem) {
                     queue.push_back(*pchild);
@@ -535,11 +601,7 @@ void StreamletNodeV1::notarize_block(const Block &note_block, uint32_t note_epoc
         if (elem == last_finalized) {
             prev_finalized = last_finalized;
 
-            // The last finalized element is second to last element
-            // in the contiguous sequence of epochs
-            last_finalized = (*finalize_end)->plink;
-
-            new_finalized = last_finalized;
+            last_finalized = new_finalized;
 
             // Remove outdated chains from the successors map
             for (ChainElement *rm : queue) {
@@ -549,6 +611,8 @@ void StreamletNodeV1::notarize_block(const Block &note_block, uint32_t note_epoc
     }
 
     successors_m.unlock();
+
+    std::list<const ChainElement*> finalized_elems;
 
     if (prev_finalized != nullptr) {
         // Deletion can be done outside the lock since elements are deleted
@@ -566,7 +630,8 @@ void StreamletNodeV1::notarize_block(const Block &note_block, uint32_t note_epoc
         // element in the finalized chain, and the notifications begin from the
         // child of the previous last finalized element.
         if (prev_finalized->links.size() != 1) {
-            std::cerr << "Finalized chain does not consist of single children" << std::endl;
+            std::cerr << "Block " <<  prev_finalized->epoch
+                << " on finalized chain does not have exactly one successor" << std::endl;
         }
 
         do {
@@ -605,30 +670,32 @@ void StreamletNodeV1::Run(system_clock::time_point epoch_sync) {
             epoch_counter.fetch_add(1, std::memory_order_relaxed);
 
             if (crypto.hash_epoch(epoch_counter.load()) == local_id) {
-                // run leader logic
-                // propose block
+                // Run leader logic
                 Proposal p;
-                std::string hash;
-                crypto.hash_block(&last_chainlen->block, hash);
+
                 p.set_node(local_id);
-                // tood: add signature when crypto library done
+                // todo: add signature when crypto library done
                 // p.set_signature();
                 p.mutable_block()->set_parent(max_chainlen);
-                p.mutable_block()->set_phash(hash);
+
+                successors_m.lock();
+                p.mutable_block()->set_phash(last_chainlen->hash);
+                successors_m.unlock();
+
                 p.mutable_block()->set_epoch(epoch_counter.load());
                 p.mutable_block()->set_txns(client->GetTransactions());
                 network.broadcast(p, &req_queue);
             }
         }
 
-        // Nothing to process if the status is TIMEOUT. Otherwise, tag
-        // is a completed async request that must be cleaned up.
+        // Nothing to process if the status is TIMEOUT. Otherwise, tag is a
+        // completed async request that must be cleaned up.
         if (status == grpc::CompletionQueue::NextStatus::GOT_EVENT) {
             NetworkInterposer::Pending *req = static_cast<NetworkInterposer::Pending*>(tag);
 
             // optionally check status and response (currently an empty struct)
 
-            // cleanup code here
+            // Deallocate the Pending structure
             delete req;
         }
 
@@ -656,6 +723,16 @@ void StreamletNodeV1::broadcast_vote(const Proposal* proposal, const std::string
 }
 
 int main(const int argc, const char *argv[]) {
+    if (argc != 5) {
+        std::cout << "Usage: StreamletNodeV1 <sync_time> <epoch_len> <config_file> <local_id>\n"
+            << "where\n"
+            << "\tsync_time is of the form HH:MM:SS specifying at time in UTC at which to start counting epochs\n"
+            << "\tepoch_len is the duration of each epoch in milliseconds\n"
+            << "\tconfig_file is a path to a copy of the configuration file supplied to all nodes in the system\n"
+            << "\tlocal_id is the node ID used by the instance being started\n"
+            << std::endl;
+        return 1;
+    }
     // read command line: sync_time epoch_len config_file local_id
     // parse config into std::list<Peer>
     int status = 0;

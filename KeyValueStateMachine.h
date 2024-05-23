@@ -18,7 +18,7 @@ class KeyValueStateMachine : public ReplicatedStateMachine {
             bool finalized = false;
             int value = -1;
         };
-        std::unordered_map<int, Status> master;
+        std::unordered_map<int, Status> states;
         std::queue<std::pair<int, int>> to_add;
         std::pair<int,int> parse_string(std::string);
         

@@ -7,7 +7,7 @@
 KeyValueStateMachine::KeyValueStateMachine(uint32_t id) :
     ReplicatedStateMachine() {
     for (int i = id; i < 100; i += 2){
-        master.insert({i, Status({false, false, false, i + 100})});
+        states.insert({i, Status({false, false, false, i + 100})});
         to_add.push({i, i + 100});
     }
 }
@@ -20,20 +20,20 @@ void KeyValueStateMachine::TransactionsFinalized(std::string transaction)
 
     std::cout << "finalized: " << transaction << std::endl;
     std::pair<int, int> t = parse_string(transaction);
-    if (master.find(t.first) == master.end()) {
-        master.insert({t.first, Status({true, true, true, t.second})});
+    if (states.find(t.first) == states.end()) {
+        states.insert({t.first, Status({true, true, true, t.second})});
     } else {
-        master[t.first].finalized = true;
+        states[t.first].finalized = true;
     }
 }
 void KeyValueStateMachine::TransactionsNotarized(std::string transaction)
 {
     std::cout << "notarized: " << transaction << std::endl;
     std::pair<int, int> t = parse_string(transaction);
-    if (master.find(t.first) == master.end()) {
-        master.insert({t.first, Status({true, true, false, t.second})});
+    if (states.find(t.first) == states.end()) {
+        states.insert({t.first, Status({true, true, false, t.second})});
     } else {
-        master[t.first].notarizied = true;
+        states[t.first].notarizied = true;
     }
 }
 bool KeyValueStateMachine::ValidateTransaction(std::string transaction)
@@ -47,7 +47,7 @@ std::string KeyValueStateMachine::GetTransactions()
     to_add.pop();
     std::string ret = std::string("key: " + std::to_string(n.first) + " value: " + std::to_string(n.second));
     std::cout << "get transactions: " << ret << std::endl;
-    master[n.first].onchain = true;
+    states[n.first].onchain = true;
     return ret;
 }
 

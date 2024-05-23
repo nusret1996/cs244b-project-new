@@ -83,7 +83,7 @@ struct Candidate {
 
 struct ChainElement {
     // Epoch of the block this ChainElement represents
-    uint32_t epoch;
+    uint64_t epoch;
 
     // Index of this block in its chain
     uint64_t index;
@@ -91,11 +91,14 @@ struct ChainElement {
     // The block
     Block block;
 
+    // Block hash
+    std::string hash;
+
     // Link to parent
     ChainElement* plink;
 
     // Links to successors
     std::list<ChainElement*> links;
 
-    ChainElement(uint32_t e) : epoch{e}, index{0}, block{}, plink{nullptr} { }
+    ChainElement(uint64_t e) : epoch{e}, index{0}, block{}, hash{}, plink{nullptr} { }
 };
