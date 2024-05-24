@@ -245,7 +245,7 @@ std::list<const ChainElement*> NotarizationTest::notarize_block(
                 }
             }
 
-            std::cout << "  parent's list (block " << p->epoch << " successors):" ;
+            std::cout << "  parent (block " << p->epoch << "'s) successors:" ;
             for (ChainElement *child : p->links) {
                 std::cout << ' ' << child->epoch;
             }
@@ -412,9 +412,9 @@ void test1 () {
 
     // last_finalized should now be 10
     _assert(test.get_last_finalized()->epoch == 10,
-            "test1: max_chainlen should be 4");
+            "test1: last_finalized should be block 10");
     _assert(test.get_last_finalized()->index == 6,
-            "test1: max_chainlen should be 4");
+            "test1: last_finalized should be at index 6");
 
     // Check values were deleted
     bool not_found = false;
@@ -492,10 +492,15 @@ void test2() {
     test.notarize(1, 0);
     test.notarize(3, 1);
 
+    _assert(test.get_max_chainlen() == 2,
+            "test2: max_chainlen should be 2");
+
+    // 4 is delayed
     test.notarize(5, 4);
     test.notarize(6, 5);
     test.notarize(8, 6);
 
+    // 10 is delayed
     test.notarize(11, 10);
     test.notarize(12, 11);
     test.notarize(13, 12);
@@ -506,15 +511,63 @@ void test2() {
     // The chain from 5 through 12 is now final. However,
     // it cannot be linked back to the genesis block, so
     // last_finalized should still be at 0, as is max_chainlen.
+    _assert(test.get_last_finalized() == test.get_genesis_block(),
+            "test2: last_finalized should be genesis block");
+    _assert(test.get_max_chainlen() == 2,
+            "test2: max_chainlen should still be 2");
+
+    _assert(test.get_element(13)->index == 0,
+            "test2: block 13 should have index set to 0");
+    _assert(test.get_element(14)->index == 0,
+            "test2: block 14 should have index set to 0");
 
     // 13 and 14 are not final so they should still be
     // successors of 12
 
-    test.notarize(4, 1);
+    std::list<const ChainElement*> finalized
+        = test.notarize(4, 1);
     
     // The chain from 0 to 12 is now final. last_finalized
     // and max_chainlen should now be updated. 1 should no
     // longer be linked to 3 as a successor.
+    _assert(test.get_last_finalized()->epoch == 12,
+            "test2: last_finalized should be block 12");
+    _assert(test.get_last_finalized()->index == 8,
+            "test2: last_finalized should be at index 8");
+    _assert(test.get_element(13)->index == 9,
+            "test2: block 13 should now be at index 9");
+    _assert(test.get_element(14)->index == 9,
+            "test2: block 14 should now be at index 9");
+
+    // Check finalized chain
+    std::ostringstream s;
+    std::vector<uint64_t> chain{1, 4, 5, 6, 8, 10, 11, 12};
+    std::list<const ChainElement*>::iterator final_iter = finalized.begin();
+    for (uint64_t i = 0; i < chain.size() - 1; i++) {
+        const ChainElement *b = test.get_element(chain[i]);
+        const ChainElement *c = test.get_element(chain[i + 1]);
+
+        s << "test2: block " << b->epoch << " not found at expected position in new "
+            << "segment of finalized chain" << std::endl;
+        _assert(b == *final_iter, s.str());
+        s.str("");
+
+        s << "test2: block " << b->epoch << " should now have one successor";
+        _assert(b->links.size() == 1, s.str());
+        s.str("");
+
+        s << "test2: block " << b->epoch << " should now be succeeded by block "
+            << c->epoch << " only";
+        _assert(b->links.front() == c, s.str());
+        s.str("");
+
+        ++final_iter;
+    }
+
+    _assert(*final_iter == test.get_element(12),
+        "test2: finalized chain should contain block 12");
+    _assert(++final_iter == finalized.end(),
+        "test2: finalized chain should end with block 12");
 }
 
 /*
@@ -527,13 +580,30 @@ void test3() {
      NotarizationTest test;
 
     _assert(test.get_element(0) == test.get_genesis_block(),
-        "test2: block 0 should be in successors and refer to genesis block");
+        "test3: block 0 should be in successors and refer to genesis block");
 
     test.notarize(1, 0);
-    test.notarize(2, 1);
+
+    _assert(test.get_last_finalized() == test.get_genesis_block(),
+            "test3: last_finalized should be genesis block");
+    _assert(test.get_max_chainlen() == 1,
+            "test3: max_chainlen should be 1");
+
+    std::list<const ChainElement*> finalized
+        = test.notarize(2, 1);
+
+    _assert(test.get_last_finalized()->epoch,
+            "test3: last_finalized should be block 2");
+    _assert(test.get_max_chainlen() == 2,
+            "test3: max_chainlen should be 2");
 }
 
 int main() {
+    std::cout << "======== Test 1 ========" << std::endl;
     test1();
+    std::cout << "======== Test 2 ========" << std::endl;
+    test2();
+    std::cout << "======== Test 3 ========" << std::endl;
+    test3();
     return 0;
 }

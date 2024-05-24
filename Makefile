@@ -10,6 +10,9 @@ override CXXFLAGS += -std=c++14 $(GRPC_CFLAGS) $(PROTOBUF_CFLAGS)
 v1: StreamletNodeV1.o NetworkInterposer.o CryptoManager.o utils.o streamlet.pb.o streamlet.grpc.pb.o KeyValueStateMachine.o
 	$(CXX) -o StreamletNodeV1 $(CXXFLAGS) $(GRPC_LIBS) $(PROTOBUF_LIBS) $^
 
+strict: StreamletNodeStrict.o NetworkInterposer.o CryptoManager.o utils.o streamlet.pb.o streamlet.grpc.pb.o KeyValueStateMachine.o
+	$(CXX) -o StreamletNodeStrict $(CXXFLAGS) $(GRPC_LIBS) $(PROTOBUF_LIBS) $^
+
 notarization_test: notarization_test.o streamlet.pb.o
 	$(CXX) -o notarization_test $(CXXFLAGS) $(PROTOBUF_LIBS) $^
 
