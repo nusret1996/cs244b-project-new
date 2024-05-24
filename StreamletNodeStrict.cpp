@@ -16,6 +16,7 @@
 #include "utils.h"
 #include "NetworkInterposer.h"
 #include "CryptoManager.h"
+#include "KeyValueStateMachine.h"
 
 using std::chrono::system_clock;
 
@@ -45,7 +46,8 @@ public:
         uint32_t id,
         const std::vector<Peer> &peers,
         const Key &priv,
-        const std::chrono::milliseconds &epoch_len
+        const std::chrono::milliseconds &epoch_len,
+        ReplicatedStateMachine *rsm_client
     );
 
     ~StreamletNodeStrict();
@@ -99,6 +101,8 @@ private:
     NetworkInterposer network;
 
     CryptoManager crypto;
+
+    ReplicatedStateMachine* client;
 
     // Completion queue for outbound RPCs
     grpc::CompletionQueue req_queue;
@@ -156,9 +160,11 @@ StreamletNodeStrict::StreamletNodeStrict(
     uint32_t id,
     const std::vector<Peer> &peers,
     const Key &priv,
-    const std::chrono::milliseconds &epoch_len)
+    const std::chrono::milliseconds &epoch_len,
+    ReplicatedStateMachine *rsm_client)
     : network{peers},
     crypto{peers, priv, peers.at(id).key},
+    client{rsm_client},
     max_chainlen{0},
     genesis_block{0},
     local_addr{peers.at(id).addr},
@@ -305,15 +311,15 @@ grpc::Status StreamletNodeStrict::ProposeBlock(
     // parent has not been seen, we cannot vote on the block and moreover
     // may consider ourselves faulty.
     successors_m.lock();
-    std::unordered_map<uint64_t, ChainElement>::iterator iter
+    std::unordered_map<uint64_t, ChainElement*>::iterator iter
         = successors.find(b_parent);
 
     if (iter == successors.end()) {
         successors_m.unlock();
         return grpc::Status::OK; // discard
     } else if ((b_parent == 0 && max_chainlen > 0)
-        || (b_parent != 0 && iter->second.index == 0)
-        || (b_parent != 0 && iter->second.index != 0 && iter->second.index < max_chainlen)) {
+        || (b_parent != 0 && iter->second->index == 0)
+        || (b_parent != 0 && iter->second->index != 0 && iter->second->index < max_chainlen)) {
             successors_m.unlock();
             std::cout << "Warning: Received proposal for block " << b_epoch
                 << " without having first seen proposal for parent block "
@@ -325,9 +331,10 @@ grpc::Status StreamletNodeStrict::ProposeBlock(
 
     // Check that the block is a valid extension according to the application
     // by invoking a callback on the ReplicatedStateMachine.
-    // if () {
-
-    // }
+    if (!client->ValidateTransaction(proposal->block().txns())) {
+        std::cout << "RSM validate transaction failed, discard" << std::endl;
+        return grpc::Status::OK; // discard message
+    }
 
     bool remove = false;
     uint32_t votes = 0;
@@ -423,7 +430,7 @@ void StreamletNodeStrict::notarize_block(
     uint64_t note_epoch,
     uint64_t par_epoch
 ) {
-    // client->TransactionsNotarized(note_block.txns());
+    client->TransactionsNotarized(note_block.txns());
 
     std::list<ChainElement*> queue;
     const ChainElement *prev_finalized = nullptr;
@@ -614,7 +621,7 @@ void StreamletNodeStrict::notarize_block(
         do {
             prev_finalized = prev_finalized->links.front();
 
-            // client->TransactionsFinalized(prev_finalized->block.txns());
+            client->TransactionsFinalized(prev_finalized->block.txns());
 
         } while (prev_finalized != new_finalized);
     }
@@ -661,6 +668,20 @@ void StreamletNodeStrict::Run(system_clock::time_point epoch_sync) {
 
             if (crypto.hash_epoch(epoch_counter.load()) == local_id) {
                 // run leader logic
+                Proposal p;
+
+                p.set_node(local_id);
+                // todo: add signature when crypto library done
+                // p.set_signature();
+                p.mutable_block()->set_parent(max_chainlen);
+
+                successors_m.lock();
+                p.mutable_block()->set_phash(last_chainlen->hash);
+                successors_m.unlock();
+
+                p.mutable_block()->set_epoch(epoch_counter.load());
+                p.mutable_block()->set_txns(client->GetTransactions());
+                network.broadcast(p, &req_queue);
             }
         }
 
@@ -711,13 +732,14 @@ int main(const int argc, const char *argv[]) {
         return 1;
     }
 
-    // ReplicatedStateMachine* rsm = new KeyValueStateMachine(id);
+    ReplicatedStateMachine* rsm = new KeyValueStateMachine(id);
 
     StreamletNodeStrict service{
         id,
         peers,
         privkey,
-        std::chrono::milliseconds{epoch}
+        std::chrono::milliseconds{epoch},
+        rsm
     };
 
     // Run this as close to service.Run() as possible
