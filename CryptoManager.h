@@ -47,6 +47,8 @@ public:
      * sha256_of for use of strings. sig is a pointer so that a
      * votes mutable_signature() field can be written to directly.
      */
+
+     // TODO
     void sign_sha256(const std::string &digest, std::string *sig);
 
     /*
