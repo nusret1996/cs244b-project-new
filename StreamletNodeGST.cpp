@@ -30,7 +30,7 @@ using std::chrono::system_clock;
  * client using the asynchronous interface so that broadcasts to other nodes do not block
  * request processing.
  */
-class StreamletNodeV1 : public Streamlet::Service {
+class StreamletNodeGST : public Streamlet::Service {
 public:
     /*
      * Params
@@ -40,7 +40,7 @@ public:
      *   pub: Public key of local node
      *   epoch_len: Duration of the epoch in milliseconds
      */
-    StreamletNodeV1(
+    StreamletNodeGST(
         uint32_t id,
         const std::vector<Peer> &peers,
         const Key &priv,
@@ -48,7 +48,7 @@ public:
         ReplicatedStateMachine *rsm_client
     );
 
-    ~StreamletNodeV1();
+    ~StreamletNodeGST();
 
     grpc::Status NotifyVote(
         grpc::ServerContext* context,
@@ -180,7 +180,7 @@ private:
     std::atomic_uint64_t epoch_counter;
 };
 
-StreamletNodeV1::StreamletNodeV1(
+StreamletNodeGST::StreamletNodeGST(
     uint32_t id,
     const std::vector<Peer> &peers,
     const Key &priv,
@@ -209,11 +209,11 @@ StreamletNodeV1::StreamletNodeV1(
     last_chainlen = &genesis_block;
 }
 
-StreamletNodeV1::~StreamletNodeV1() {
+StreamletNodeGST::~StreamletNodeGST() {
 
 }
 
-grpc::Status StreamletNodeV1::NotifyVote(
+grpc::Status StreamletNodeGST::NotifyVote(
     grpc::ServerContext* context,
     const Vote* vote,
     Response* response
@@ -281,7 +281,7 @@ grpc::Status StreamletNodeV1::NotifyVote(
     return grpc::Status::OK;
 }
 
-grpc::Status StreamletNodeV1::ProposeBlock(
+grpc::Status StreamletNodeGST::ProposeBlock(
     grpc::ServerContext* context,
     const Proposal* proposal,
     Response* response
@@ -439,7 +439,7 @@ grpc::Status StreamletNodeV1::ProposeBlock(
     return grpc::Status::OK;
 }
 
-void StreamletNodeV1::notarize_block(
+void StreamletNodeGST::notarize_block(
     const Block &note_block,
     const std::string &note_hash,
     uint64_t note_epoch,
@@ -642,7 +642,7 @@ void StreamletNodeV1::notarize_block(
     }
 }
 
-void StreamletNodeV1::broadcast_vote(const Proposal* proposal, const std::string &hash) {
+void StreamletNodeGST::broadcast_vote(const Proposal* proposal, const std::string &hash) {
     Vote v;
     v.set_node(local_id);
     v.set_parent(proposal->block().parent());
@@ -654,7 +654,7 @@ void StreamletNodeV1::broadcast_vote(const Proposal* proposal, const std::string
     network.broadcast(v, &req_queue);
 }
 
-void StreamletNodeV1::Run(system_clock::time_point epoch_sync) {
+void StreamletNodeGST::Run(system_clock::time_point epoch_sync) {
     // Build server and run
     std::string server_address{ local_addr };
 
@@ -720,7 +720,7 @@ void StreamletNodeV1::Run(system_clock::time_point epoch_sync) {
 
 int main(const int argc, const char *argv[]) {
     if (argc != 5) {
-        std::cout << "Usage: StreamletNodeV1 <sync_time> <epoch_len> <config_file> <local_id>\n"
+        std::cout << "Usage: StreamletNodeGST <sync_time> <epoch_len> <config_file> <local_id>\n"
             << "where\n"
             << "\tsync_time is of the form HH:MM:SS specifying at time in UTC at which to start counting epochs\n"
             << "\tepoch_len is the duration of each epoch in milliseconds\n"
@@ -749,7 +749,7 @@ int main(const int argc, const char *argv[]) {
 
     ReplicatedStateMachine* rsm = new KeyValueStateMachine(id);
 
-    StreamletNodeV1 service{
+    StreamletNodeGST service{
         id,
         peers,
         privkey,
