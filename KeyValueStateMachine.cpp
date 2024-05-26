@@ -9,7 +9,7 @@ KeyValueStateMachine::KeyValueStateMachine(uint32_t id) {
     }
 }
 
-void KeyValueStateMachine::TransactionsFinalized(const std::string &transaction)
+void KeyValueStateMachine::TransactionsFinalized(const std::string &transaction, uint64_t epoch)
 {
     // std::cout << "finalized: " << transaction << std::endl;
     std::pair<int, int> t = parse_string(transaction);
@@ -20,7 +20,7 @@ void KeyValueStateMachine::TransactionsFinalized(const std::string &transaction)
     }
 }
 
-void KeyValueStateMachine::TransactionsNotarized(const std::string &transaction)
+void KeyValueStateMachine::TransactionsNotarized(const std::string &transaction, uint64_t epoch)
 {
     // std::cout << "notarized: " << transaction << std::endl;
     std::pair<int, int> t = parse_string(transaction);
@@ -31,12 +31,12 @@ void KeyValueStateMachine::TransactionsNotarized(const std::string &transaction)
     }
 }
 
-bool KeyValueStateMachine::ValidateTransactions(const std::string &transaction)
+bool KeyValueStateMachine::ValidateTransactions(const std::string &transaction, uint64_t epoch)
 {
     return true;
 }
 
-void KeyValueStateMachine::GetTransactions(std::string *txns)
+void KeyValueStateMachine::GetTransactions(std::string *txns, uint64_t epoch)
 {
     if (to_add.empty()) {
         txns->clear();

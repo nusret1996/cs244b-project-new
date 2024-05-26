@@ -160,6 +160,10 @@ private:
     // Mutex for successors
     std::mutex successors_m;
 
+    // Mutex to serialize client notifications, and also to
+    // ensure finalization notifications occur in order
+    std::mutex notification_m;
+
     // Genesis block
     ChainElement genesis_block;
 
@@ -274,6 +278,19 @@ grpc::Status StreamletNodeGST::NotifyVote(
         if (remove) {
             delete cand;
         } else if (votes > 0) {
+            // Votes can only be non-zero if the proposal has already been seen. Furthermore, if this
+            // invocation of NotifyVote has incremented the number of votes to meet the notarization
+            // threshold, then the block must be notarized by the same invocation.
+            if (votes == note_threshold) {
+                // can lock candidates map, remove from map, add entry to some "finished" set, and then unlock
+                // then call notarize_block() with the Candidate's block
+                // then lock the Candidate, set the remove flag, record ref_count.load(std::memory_order_relaxed),
+                // and then unlock, and finally deallocate the candidate if ref_count was zero
+
+                // but for now just notarize
+                notarize_block(cand->block, b_hash, b_epoch, vote->parent());
+            }
+
             // votes is 0 when the message is a duplicate or unanticipated, echo otherwise
             network.broadcast(*vote, &req_queue);
         }
@@ -360,7 +377,7 @@ grpc::Status StreamletNodeGST::ProposeBlock(
 
     // Check that the block is a valid extension according to the application
     // by invoking a callback on the ReplicatedStateMachine.
-    if (!client->ValidateTransactions(proposal->block().txns())) {
+    if (!client->ValidateTransactions(proposal->block().txns(), proposal->block().epoch())) {
         std::cout << "Warning: Client rejected proposal for epoch " << b_epoch
             << ", discarding message" << std::endl;
         return grpc::Status::OK; // discard message
@@ -454,7 +471,9 @@ void StreamletNodeGST::notarize_block(
     uint64_t note_epoch,
     uint64_t par_epoch
 ) {
-    client->TransactionsNotarized(note_block.txns());
+    notification_m.lock();
+    client->TransactionsNotarized(note_block.txns(), note_epoch);
+    notification_m.unlock();
 
     std::list<ChainElement*> queue;
     const ChainElement *prev_finalized = nullptr;
@@ -618,6 +637,9 @@ void StreamletNodeGST::notarize_block(
         }
     }
 
+    // Overlap locks because, in case of concurrent finalizations, the thread that
+    // will notify the client of earlier finalized nodes must run first
+    notification_m.lock();
     successors_m.unlock();
 
     std::list<const ChainElement*> finalized_elems;
@@ -645,10 +667,12 @@ void StreamletNodeGST::notarize_block(
         do {
             prev_finalized = prev_finalized->links.front();
 
-            client->TransactionsFinalized(prev_finalized->block.txns());
+            client->TransactionsFinalized(prev_finalized->block.txns(), prev_finalized->block.epoch());
 
         } while (prev_finalized != new_finalized);
     }
+
+    notification_m.unlock();
 }
 
 void StreamletNodeGST::broadcast_vote(const Proposal* proposal, const std::string &hash) {
@@ -755,9 +779,11 @@ void StreamletNodeGST::Run(system_clock::time_point epoch_sync) {
             // Since the increment specifies relaxed memory order, be careful
             // that no code below this statement changes other data shared among
             // threads that must be sequenced with epoch_counter.
-            epoch_counter.fetch_add(1, std::memory_order_relaxed);
+            uint64_t cur_epoch = epoch_counter.fetch_add(1, std::memory_order_relaxed);
 
-            if (crypto.hash_epoch(epoch_counter.load()) == local_id) {
+            cur_epoch++; // Must be incremented because the atomic op returns the previous value
+
+            if (crypto.hash_epoch(cur_epoch) == local_id) {
                 // Run leader logic
                 Proposal p;
 
@@ -770,10 +796,10 @@ void StreamletNodeGST::Run(system_clock::time_point epoch_sync) {
                 p.mutable_block()->set_phash(last_chainlen->hash);
                 successors_m.unlock();
 
-                p.mutable_block()->set_epoch(epoch_counter.load());
+                p.mutable_block()->set_epoch(cur_epoch);
 
-                client->GetTransactions(p.mutable_block()->mutable_txns());
-                std::cout << "Epoch " << epoch_counter.load() << ", leader " << local_id
+                client->GetTransactions(p.mutable_block()->mutable_txns(), cur_epoch);
+                std::cout << "Epoch " << cur_epoch << ", leader " << local_id
                     << ": " << p.block().txns() << std::endl;
 
                 network.broadcast(p, &req_queue);
@@ -782,7 +808,7 @@ void StreamletNodeGST::Run(system_clock::time_point epoch_sync) {
                 // with local exection. record_proposal is designed to be safe to call
                 // with the possiblity of from remote nodes echoing the proposal so that
                 // ProposeBlock is called before or concurrently with record_proposal.
-                record_proposal(&p, epoch_counter.load());
+                record_proposal(&p, cur_epoch);
             }
         }
 

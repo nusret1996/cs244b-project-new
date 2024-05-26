@@ -6,10 +6,10 @@
 // which implement the replicated state machine
 class ReplicatedStateMachine {
 public:
-    virtual void TransactionsFinalized(const std::string &txns) = 0;
-    virtual void TransactionsNotarized(const std::string &txns) = 0;
-    virtual bool ValidateTransactions(const std::string &txns) = 0;
-    virtual void GetTransactions(std::string *txns) = 0;
+    virtual void TransactionsFinalized(const std::string &txns, uint64_t epoch) = 0;
+    virtual void TransactionsNotarized(const std::string &txns, uint64_t epoch) = 0;
+    virtual bool ValidateTransactions(const std::string &txns, uint64_t epoch) = 0;
+    virtual void GetTransactions(std::string *txns, uint64_t epoch) = 0;
 };
 
 // 256 bit key for P-256/secp256r1
@@ -79,6 +79,13 @@ struct Candidate {
     }
 };
 
+/*
+ * A ChainElement represents a block that has been notarized onto the blockchain.
+ * 
+ * As with the Candidate type above, there must only be one ChainElement
+ * in memory representing a given triple although there can be several
+ * Block instances representing the same mathematical object.
+ */
 struct ChainElement {
     // Epoch of the block this ChainElement represents
     uint64_t epoch;

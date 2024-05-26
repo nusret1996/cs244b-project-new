@@ -6,10 +6,10 @@
 class KeyValueStateMachine : public ReplicatedStateMachine {
 public:
     KeyValueStateMachine(uint32_t id);
-    void TransactionsFinalized(const std::string &txns) override;
-    void TransactionsNotarized(const std::string &txns) override;
-    bool ValidateTransactions(const std::string &txns) override;
-    void GetTransactions(std::string *txns) override;
+    void TransactionsFinalized(const std::string &txns, uint64_t epoch) override;
+    void TransactionsNotarized(const std::string &txns, uint64_t epoch) override;
+    bool ValidateTransactions(const std::string &txns, uint64_t epoch) override;
+    void GetTransactions(std::string *txns, uint64_t epoch) override;
 
 private:
     struct Status{
