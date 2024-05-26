@@ -1,26 +1,24 @@
+#pragma once
+
 #include "structs.h"
-#include "utils.h"
 #include <queue>
-#include <iostream>
+
 class KeyValueStateMachine : public ReplicatedStateMachine {
-    public:
-         KeyValueStateMachine(uint32_t);
-        ~KeyValueStateMachine() override;
-        void TransactionsFinalized(std::string) override;
-        void TransactionsNotarized(std::string) override;
-        bool ValidateTransaction(std::string) override;
-        std::string GetTransactions() override;
+public:
+    KeyValueStateMachine(uint32_t id);
+    void TransactionsFinalized(const std::string &txns) override;
+    void TransactionsNotarized(const std::string &txns) override;
+    bool ValidateTransactions(const std::string &txns) override;
+    void GetTransactions(std::string *txns) override;
 
-    private:
-        struct Status{
-            bool onchain = false;
-            bool notarizied = false;
-            bool finalized = false;
-            int value = -1;
-        };
-        std::unordered_map<int, Status> states;
-        std::queue<std::pair<int, int>> to_add;
-        std::pair<int,int> parse_string(std::string);
-        
-
+private:
+    struct Status{
+        bool onchain = false;
+        bool notarizied = false;
+        bool finalized = false;
+        int value = -1;
+    };
+    std::unordered_map<int, Status> states;
+    std::queue<std::pair<int, int>> to_add;
+    std::pair<int,int> parse_string(std::string);
 };

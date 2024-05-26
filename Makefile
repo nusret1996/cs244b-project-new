@@ -22,7 +22,7 @@ streamlet.pb.cc: streamlet.proto
 	protoc --cpp_out=. streamlet.proto
 
 streamlet.grpc.pb.cc: streamlet.proto
-	protoc --grpc_out=. --plugin=protoc-gen-grpc=$(shell which grpc_cpp_plugin) streamlet.proto
+	protoc --grpc_out=. --plugin=protoc-gen-grpc="$(shell which grpc_cpp_plugin)" streamlet.proto
 
 streamlet.pb.o: streamlet.pb.cc
 	$(CXX) $(CXXFLAGS) -c streamlet.pb.cc

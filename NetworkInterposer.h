@@ -33,7 +33,7 @@ public:
      * nodes. Operations in NetworkInterposer refer to peers by their
      * node ID.
      */
-    NetworkInterposer(const std::vector<Peer> &peers);
+    NetworkInterposer(const std::vector<Peer> &peers, uint32_t id);
 
     /*
      * Containers do not release held objects, so resources must
@@ -52,6 +52,7 @@ public:
     void broadcast(const Proposal& proposal, grpc::CompletionQueue* cq);
 
 private:
+    const uint32_t local_id;
     std::vector<std::shared_ptr<grpc::Channel>> channel;
     std::vector<std::unique_ptr<Streamlet::Stub>> stub;
     std::unordered_set <std::unique_ptr<Pending>> pending_set;

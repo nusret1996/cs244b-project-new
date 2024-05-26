@@ -1,11 +1,11 @@
 #include "NetworkInterposer.h"
 #include "grpcpp/create_channel.h"
 
-NetworkInterposer::NetworkInterposer(const std::vector<Peer> &peers) {
+NetworkInterposer::NetworkInterposer(const std::vector<Peer> &peers, uint32_t id) : local_id{id} {
     bool error = false;
 
     for (const Peer &remote : peers) {
-        std::cout << "setting up stub with remote " << remote.addr << std::endl;
+        // std::cout << "setting up stub with remote " << remote.addr << std::endl;
         channel.emplace_back(grpc::CreateChannel(remote.addr, grpc::InsecureChannelCredentials()));
 
         // Check returned channel isn't nullptr
@@ -48,6 +48,8 @@ NetworkInterposer::~NetworkInterposer() {
 
 void NetworkInterposer::broadcast(const Vote& vote, grpc::CompletionQueue* cq) {
     for (size_t i = 0; i < stub.size(); i++) {
+        if (i == local_id) { continue; }
+
         // allocate and record a Pending somehwere, cleaned up when pulled from cq
         // in the service implementation
         // Pending req
@@ -66,8 +68,10 @@ void NetworkInterposer::broadcast(const Vote& vote, grpc::CompletionQueue* cq) {
 }
 
 void NetworkInterposer::broadcast(const Proposal& proposal, grpc::CompletionQueue* cq) {
-    std::cout << "networkinterposer broadcast proposal" << std::endl;
+    // std::cout << "networkinterposer broadcast proposal" << std::endl;
     for (size_t i = 0; i < stub.size(); i++) {
+        if (i == local_id) { continue; }
+
         // std::cout << "network interporser broadcast i " << i << std::endl;
         // allocate and record a Pending somehwere, cleaned up when pulled from cq
         // in the service implementation

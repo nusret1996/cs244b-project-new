@@ -86,6 +86,8 @@ public:
 private:
     void broadcast_vote(const Proposal* proposal, const std::string &hash);
 
+    void record_proposal(const Proposal *proposal, uint64_t epoch);
+
     /*
      * Links block proposed in note_epoch to the notarized chain under parent proposed in par_epoch.
      * Called from ProposeBlock once the block contents are known. This should only be called once
@@ -186,7 +188,7 @@ StreamletNodeGST::StreamletNodeGST(
     const Key &priv,
     const std::chrono::milliseconds &epoch_len,
     ReplicatedStateMachine *rsm_client)
-    : network{peers},
+    : network{peers, id},
     crypto{peers, priv, peers.at(id).key},
     client{rsm_client},
     max_chainlen{0},
@@ -194,7 +196,7 @@ StreamletNodeGST::StreamletNodeGST(
     local_addr{peers.at(id).addr},
     local_id{id},
     num_peers{static_cast<uint32_t>(peers.size())},
-    note_threshold{((num_peers + 2) / 3) * 2},
+    note_threshold{((num_peers * 2) / 3) + (num_peers % 3)},
     epoch_duration{std::chrono::duration_cast<system_clock::duration>(epoch_len)},
     epoch_counter{0}
 {
@@ -224,6 +226,8 @@ grpc::Status StreamletNodeGST::NotifyVote(
     const uint32_t voter = vote->node();
 
     if (!crypto.verify_signature(voter, b_hash, vote->signature())) {
+        std::cout << "Warning: Signature verification failed on vote for block " << b_epoch
+            << " by node " << voter <<  ", discarding message" << std::endl;
         return grpc::Status::OK; // discard message
     }
 
@@ -291,16 +295,19 @@ grpc::Status StreamletNodeGST::ProposeBlock(
     const uint64_t b_parent = proposal->block().parent();
     const uint32_t proposer = proposal->node();
 
-    if (proposer != crypto.hash_epoch(cur_epoch)) {
-        std::cout << "from previous epoch, discard" << std::endl;
-        return grpc::Status::OK; // discard message
+    if (proposer != crypto.hash_epoch(b_epoch)) {
+        std::cout << "Warning: Received proposal for epoch " << b_epoch
+            << " from wrong leader (node " << proposer
+            << "), discarding message" << std::endl;
+        return grpc::Status::OK; // discard mesasge
     }
 
     std::string hash;
     crypto.hash_block(&proposal->block(), hash);
     if (!crypto.verify_signature(proposer, hash, proposal->signature())) {
-        std::cout << "crypto verify signature failed, discard" << std::endl;
-        return grpc::Status::OK; // discard message
+        std::cout << "Warning: Signature verification failed for block " << b_epoch
+            << " proposed by node " << proposer <<  ", discarding message" << std::endl;
+        return grpc::Status::OK; // discard mesasge
     }
 
     // Check that the block extends the longest chain. Since messages can be delayed
@@ -346,14 +353,16 @@ grpc::Status StreamletNodeGST::ProposeBlock(
     successors_m.unlock();
 
     if (outdated_length) {
-        std::cout << "does not extend longest chain, discard" << std::endl;
+        std::cout << "Proposal for epoch " <<  b_epoch
+            << " does not extend longest chain, discarding message" << std::endl;
         return grpc::Status::OK; // discard message
     }
 
     // Check that the block is a valid extension according to the application
     // by invoking a callback on the ReplicatedStateMachine.
-    if (!client->ValidateTransaction(proposal->block().txns())) {
-        std::cout << "RSM validate transaction failed, discard" << std::endl;
+    if (!client->ValidateTransactions(proposal->block().txns())) {
+        std::cout << "Warning: Client rejected proposal for epoch " << b_epoch
+            << ", discarding message" << std::endl;
         return grpc::Status::OK; // discard message
     }
 
@@ -654,6 +663,71 @@ void StreamletNodeGST::broadcast_vote(const Proposal* proposal, const std::strin
     network.broadcast(v, &req_queue);
 }
 
+void StreamletNodeGST::record_proposal(const Proposal *proposal, uint64_t epoch) {
+    bool remove = false;
+    uint32_t votes = 0;
+    Candidate *cand = nullptr;
+
+    std::string hash;
+    crypto.hash_block(&proposal->block(), hash);
+
+    candidates_m.lock();
+    std::unordered_map<uint64_t, Candidate*>::iterator iter
+        = candidates.find(epoch);
+
+    if (iter == candidates.end()) {
+        cand = new Candidate{num_peers};
+        candidates.emplace(epoch, cand);
+    } else {
+        cand = iter->second;
+    }
+
+    cand->ref_count.fetch_add(1, std::memory_order_relaxed);
+    candidates_m.unlock();
+
+    // Unlike in ProposeBlock, the check on hash.empty() is to prevent double counting
+    // in case an echo from a remote node has returned the local proposal before this
+    // method was run.
+    cand->m.lock();
+    if (cand->hash.empty()) {
+        cand->hash = hash;
+
+        // Since the local node proposed the block, only count one vote
+        votes = 1;
+        cand->voters[local_id] = true;
+
+        // Tally other votes in case votes from other nodes started rolling in
+        // before local execution reached this point
+        for (std::pair<const uint32_t, std::string> &p : cand->vote_hashes) {
+            if (p.second == hash) {
+                cand->voters[p.first] = true;
+                votes++;
+            }
+        }
+        cand->votes = votes;
+        cand->vote_hashes.clear();
+
+        cand->block.CopyFrom(proposal->block());
+    }
+    remove = (cand->removed
+        && (cand->ref_count.fetch_sub(1, std::memory_order_relaxed) == 1));
+    cand->m.unlock();
+
+    // See comment above identical branch in NotifyVote. Notarization will not
+    // be applied a second time if the message is a duplicate since votes is 0.
+    if (remove) {
+        delete cand;
+    } else if (votes >= note_threshold) {
+        // can lock candidates map, remove from map, add entry to some "finished" set, and then unlock
+        // then call notarize_block() with the Candidate's block
+        // then lock the Candidate, set the remove flag, record ref_count.load(std::memory_order_relaxed),
+        // and then unlock, and finally deallocate the candidate if ref_count was zero
+
+        // but for now just notarize
+        notarize_block(proposal->block(), hash, epoch, proposal->block().parent());
+    }
+}
+
 void StreamletNodeGST::Run(system_clock::time_point epoch_sync) {
     // Build server and run
     std::string server_address{ local_addr };
@@ -676,6 +750,8 @@ void StreamletNodeGST::Run(system_clock::time_point epoch_sync) {
         if ((t_now - epoch_sync) >= epoch_duration) {
             epoch_sync += epoch_duration;
 
+            std::cout << "Timeout delay: " << (t_now - epoch_sync).count() << std::endl;
+
             // Since the increment specifies relaxed memory order, be careful
             // that no code below this statement changes other data shared among
             // threads that must be sequenced with epoch_counter.
@@ -695,8 +771,18 @@ void StreamletNodeGST::Run(system_clock::time_point epoch_sync) {
                 successors_m.unlock();
 
                 p.mutable_block()->set_epoch(epoch_counter.load());
-                p.mutable_block()->set_txns(client->GetTransactions());
+
+                client->GetTransactions(p.mutable_block()->mutable_txns());
+                std::cout << "Epoch " << epoch_counter.load() << ", leader " << local_id
+                    << ": " << p.block().txns() << std::endl;
+
                 network.broadcast(p, &req_queue);
+
+                // Broadcast first then propose locally to overlap the network requests
+                // with local exection. record_proposal is designed to be safe to call
+                // with the possiblity of from remote nodes echoing the proposal so that
+                // ProposeBlock is called before or concurrently with record_proposal.
+                record_proposal(&p, epoch_counter.load());
             }
         }
 
