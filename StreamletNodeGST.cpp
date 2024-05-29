@@ -1,11 +1,4 @@
-#include "grpc/grpc.h"
-#include "grpcpp/server.h"
-#include "grpcpp/server_builder.h"
-#include "grpcpp/server_context.h"
-
-#include "grpcpp/channel.h"
-#include "grpcpp/create_channel.h"
-#include "grpcpp/completion_queue.h"
+#include "grpcpp/grpcpp.h"
 
 #include "streamlet.grpc.pb.h"
 
@@ -17,8 +10,6 @@
 #include "NetworkInterposer.h"
 #include "CryptoManager.h"
 #include "KeyValueStateMachine.h"
-
-using std::chrono::system_clock;
 
 /*
  * Implements the Streamlet protocol in which votes are allowed to arrive after the epoch in
@@ -39,13 +30,14 @@ public:
      *   priv: Private key of local node
      *   pub: Public key of local node
      *   epoch_len: Duration of the epoch in milliseconds
+     *   client_app: Distributed application implementing a ReplicatedStateMachine
      */
     StreamletNodeGST(
         uint32_t id,
         const std::vector<Peer> &peers,
         const Key &priv,
-        const std::chrono::milliseconds &epoch_len,
-        ReplicatedStateMachine *rsm_client
+        const gpr_timespec &epoch_len,
+        ReplicatedStateMachine &client_app
     );
 
     ~StreamletNodeGST();
@@ -75,13 +67,7 @@ public:
      *               to the local time zone, as the epoch synchronization point of other
      *               nodes in the system.
      */
-    void Run(system_clock::time_point epoch_sync);
-
-    /*
-     * Queues transactions, which are a binary, to be placed into a block and proposed
-     * at some future time when this node becomes leader.
-     */
-    void QueueTransactions();
+    void Run(gpr_timespec epoch_sync);
 
 private:
     void broadcast_vote(const Proposal* proposal, const std::string &hash);
@@ -128,7 +114,7 @@ private:
 
     CryptoManager crypto;
 
-    ReplicatedStateMachine* client;
+    ReplicatedStateMachine &client;
 
     // Completion queue for outbound RPCs
     grpc::CompletionQueue req_queue;
@@ -180,7 +166,7 @@ private:
     const uint32_t note_threshold;
 
     // Duration of each epoch
-    const system_clock::duration epoch_duration;
+    const gpr_timespec epoch_duration;
 
     // Current epoch number
     std::atomic_uint64_t epoch_counter;
@@ -190,18 +176,18 @@ StreamletNodeGST::StreamletNodeGST(
     uint32_t id,
     const std::vector<Peer> &peers,
     const Key &priv,
-    const std::chrono::milliseconds &epoch_len,
-    ReplicatedStateMachine *rsm_client)
+    const gpr_timespec &epoch_len,
+    ReplicatedStateMachine &client_app)
     : network{peers, id},
     crypto{peers, priv, peers.at(id).key},
-    client{rsm_client},
+    client{client_app},
     max_chainlen{0},
     genesis_block{0},
     local_addr{peers.at(id).addr},
     local_id{id},
     num_peers{static_cast<uint32_t>(peers.size())},
     note_threshold{((num_peers * 2) / 3) + (num_peers % 3)},
-    epoch_duration{std::chrono::duration_cast<system_clock::duration>(epoch_len)},
+    epoch_duration{epoch_len},
     epoch_counter{0}
 {
     // Create entry for dependents of genesis block
@@ -377,7 +363,7 @@ grpc::Status StreamletNodeGST::ProposeBlock(
 
     // Check that the block is a valid extension according to the application
     // by invoking a callback on the ReplicatedStateMachine.
-    if (!client->ValidateTransactions(proposal->block().txns(), proposal->block().epoch())) {
+    if (!client.ValidateTransactions(proposal->block().txns(), proposal->block().epoch())) {
         std::cout << "Warning: Client rejected proposal for epoch " << b_epoch
             << ", discarding message" << std::endl;
         return grpc::Status::OK; // discard message
@@ -472,7 +458,7 @@ void StreamletNodeGST::notarize_block(
     uint64_t par_epoch
 ) {
     notification_m.lock();
-    client->TransactionsNotarized(note_block.txns(), note_epoch);
+    client.TransactionsNotarized(note_block.txns(), note_epoch);
     notification_m.unlock();
 
     std::list<ChainElement*> queue;
@@ -667,7 +653,7 @@ void StreamletNodeGST::notarize_block(
         do {
             prev_finalized = prev_finalized->links.front();
 
-            client->TransactionsFinalized(prev_finalized->block.txns(), prev_finalized->block.epoch());
+            client.TransactionsFinalized(prev_finalized->block.txns(), prev_finalized->block.epoch());
 
         } while (prev_finalized != new_finalized);
     }
@@ -752,7 +738,7 @@ void StreamletNodeGST::record_proposal(const Proposal *proposal, uint64_t epoch)
     }
 }
 
-void StreamletNodeGST::Run(system_clock::time_point epoch_sync) {
+void StreamletNodeGST::Run(gpr_timespec epoch_sync) {
     // Build server and run
     std::string server_address{ local_addr };
 
@@ -769,12 +755,14 @@ void StreamletNodeGST::Run(system_clock::time_point epoch_sync) {
     status = req_queue.AsyncNext(&tag, &ok, epoch_sync);
     while (status != grpc::CompletionQueue::NextStatus::SHUTDOWN) {
         // Always check if the epoch advanced
-        system_clock::time_point t_now = system_clock::now();
+        gpr_timespec t_now = gpr_now(GPR_CLOCK_MONOTONIC);
 
-        if ((t_now - epoch_sync) >= epoch_duration) {
-            epoch_sync += epoch_duration;
+        if (gpr_time_cmp(gpr_time_sub(t_now, epoch_sync), epoch_duration) >= 0) {
+            epoch_sync = gpr_time_add(epoch_sync, epoch_duration);
 
-            std::cout << "Timeout delay: " << (t_now - epoch_sync).count() << std::endl;
+            // Get delay after updating epoch_sync
+            gpr_timespec delay = gpr_time_sub(t_now, epoch_sync);
+            std::cout << "Timeout delay: " << delay.tv_nsec << std::endl;
 
             // Since the increment specifies relaxed memory order, be careful
             // that no code below this statement changes other data shared among
@@ -798,7 +786,7 @@ void StreamletNodeGST::Run(system_clock::time_point epoch_sync) {
 
                 p.mutable_block()->set_epoch(cur_epoch);
 
-                client->GetTransactions(p.mutable_block()->mutable_txns(), cur_epoch);
+                client.GetTransactions(p.mutable_block()->mutable_txns(), cur_epoch);
                 std::cout << "Epoch " << cur_epoch << ", leader " << local_id
                     << ": " << p.block().txns() << std::endl;
 
@@ -859,18 +847,20 @@ int main(const int argc, const char *argv[]) {
         return 1;
     }
 
-    ReplicatedStateMachine* rsm = new KeyValueStateMachine(id);
+    gpr_time_init();
+
+    KeyValueStateMachine rsm{id};
 
     StreamletNodeGST service{
         id,
         peers,
         privkey,
-        std::chrono::milliseconds{epoch},
+        gpr_time_from_millis(epoch, GPR_TIMESPAN),
         rsm
     };
 
     // Run this as close to service.Run() as possible
-    system_clock::time_point sync_start;
+    gpr_timespec sync_start;
     status = sync_time(argv[1], sync_start);
 
     if (status == 1) {

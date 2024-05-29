@@ -1,16 +1,16 @@
 #pragma once
 
-#include <chrono>
 #include "structs.h"
+#include "grpc/support/time.h"
 
 /*
  * Parses utc_start, which is expected to be a string of HH:MM:SS representing
- * a GMT time in the current day, and converts it to a std::chrono::system_clock::time_point
- * in local time. This is used to synchronize the start of the Streamlet epochs.
- * Returns 0 on success, 1 if utc_start is an invalid string, or 2 if utc_start represents
+ * a GMT time in the current day, and converts it to a grp_timespec in local time.
+ * This is used to synchronize the start of the Streamlet epochs. Returns 0 on
+ * success, 1 if utc_start is an invalid string, or 2 if utc_start represents
  * a time that has already passed.
  */
-int sync_time(const char *utc_start, std::chrono::system_clock::time_point &tpoint);
+int sync_time(const char *utc_start, gpr_timespec &tspec);
 
 /*
  * Reads at most len hex bytes from str. Each hex byte is two adjacent characters

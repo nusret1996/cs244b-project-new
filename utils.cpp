@@ -4,8 +4,11 @@
 #include <fstream>
 #include <sstream>
 #include <cstring>
+#include <chrono>
 
-int sync_time(const char *utc_start, std::chrono::system_clock::time_point &tpoint) {
+#include "grpcpp/support/time.h"
+
+int sync_time(const char *utc_start, gpr_timespec &tspec) {
     static_assert(std::chrono::system_clock::period::num == 1
         && std::chrono::system_clock::period::den >= 1000,
         "std::chrono::system_clock precision must be at least a millisecond");
@@ -40,7 +43,11 @@ int sync_time(const char *utc_start, std::chrono::system_clock::time_point &tpoi
         return 2;
     }
 
-    tpoint = std::chrono::system_clock::from_time_t(t_now) + std::chrono::seconds(sync_sec - now_sec);
+    grpc::TimePoint<std::chrono::system_clock::time_point> tpoint{
+        std::chrono::system_clock::from_time_t(t_now) + std::chrono::seconds(sync_sec - now_sec)
+    };
+
+    tspec = gpr_convert_clock_type(tpoint.raw_time(), GPR_CLOCK_MONOTONIC);
 
     return 0;
 }
