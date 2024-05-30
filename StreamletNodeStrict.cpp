@@ -9,6 +9,7 @@
 #include "utils.h"
 #include "NetworkInterposer.h"
 #include "CryptoManager.h"
+#include "ThroughputLossStateMachine.h"
 #include "KeyValueStateMachine.h"
 
 /*
@@ -733,6 +734,10 @@ void StreamletNodeStrict::Run(gpr_timespec epoch_sync) {
     void *tag;
     bool ok;
     status = req_queue.AsyncNext(&tag, &ok, epoch_sync);
+
+    // Client should only begin tracking time after the initial sync is complete
+    client.BeginTime();
+
     while (status != grpc::CompletionQueue::NextStatus::SHUTDOWN) {
         // Always check if the epoch advanced
         gpr_timespec t_now = gpr_now(GPR_CLOCK_MONOTONIC);
@@ -741,8 +746,8 @@ void StreamletNodeStrict::Run(gpr_timespec epoch_sync) {
             epoch_sync = gpr_time_add(epoch_sync, epoch_duration);
 
             // Get delay after updating epoch_sync
-            gpr_timespec delay = gpr_time_sub(t_now, epoch_sync);
-            std::cout << "Timeout delay: " << delay.tv_nsec << std::endl;
+            // gpr_timespec delay = gpr_time_sub(t_now, epoch_sync);
+            // std::cout << "Timeout delay: " << delay.tv_nsec << std::endl;
 
             // Since the increment specifies relaxed memory order, be careful
             // that no code below this statement changes other data shared among
@@ -767,8 +772,11 @@ void StreamletNodeStrict::Run(gpr_timespec epoch_sync) {
                 p.mutable_block()->set_epoch(cur_epoch);
 
                 client.GetTransactions(p.mutable_block()->mutable_txns(), cur_epoch);
+
+#ifdef PRINT_TRANSACTIONS
                 std::cout << "Epoch " << cur_epoch << ", leader " << local_id
                     << ": " << p.block().txns() << std::endl;
+#endif
 
                 network.broadcast(p, &req_queue);
 
@@ -829,7 +837,11 @@ int main(const int argc, const char *argv[]) {
 
     gpr_time_init();
 
-    KeyValueStateMachine rsm{id};
+    ThroughputLossStateMachine rsm{
+        id,
+        static_cast<uint32_t>(peers.size()),
+        gpr_time_from_millis(1000, GPR_TIMESPAN)
+    };
 
     StreamletNodeStrict service{
         id,

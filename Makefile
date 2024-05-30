@@ -7,10 +7,10 @@ override CXXFLAGS += -std=c++14 $(GRPC_CFLAGS) $(PROTOBUF_CFLAGS)
 
 .PHONY: protos
 
-gst: streamlet.pb.o streamlet.grpc.pb.o StreamletNodeGST.o NetworkInterposer.o CryptoManager.o utils.o KeyValueStateMachine.o
+gst: streamlet.pb.o streamlet.grpc.pb.o StreamletNodeGST.o NetworkInterposer.o CryptoManager.o utils.o KeyValueStateMachine.o ThroughputLossStateMachine.o
 	$(CXX) -o StreamletNodeGST $(CXXFLAGS) $(GRPC_LIBS) $(PROTOBUF_LIBS) $^
 
-strict: streamlet.pb.o streamlet.grpc.pb.o StreamletNodeStrict.o NetworkInterposer.o CryptoManager.o utils.o KeyValueStateMachine.o
+strict: streamlet.pb.o streamlet.grpc.pb.o StreamletNodeStrict.o NetworkInterposer.o CryptoManager.o utils.o KeyValueStateMachine.o ThroughputLossStateMachine.o
 	$(CXX) -o StreamletNodeStrict $(CXXFLAGS) $(GRPC_LIBS) $(PROTOBUF_LIBS) $^
 
 notarization_test: streamlet.pb.o notarization_test.o

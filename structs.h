@@ -10,6 +10,7 @@ public:
     virtual void TransactionsNotarized(const std::string &txns, uint64_t epoch) = 0;
     virtual bool ValidateTransactions(const std::string &txns, uint64_t epoch) = 0;
     virtual void GetTransactions(std::string *txns, uint64_t epoch) = 0;
+    virtual void BeginTime() = 0;
 };
 
 // 256 bit key for P-256/secp256r1

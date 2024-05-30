@@ -10,6 +10,7 @@ public:
     void TransactionsNotarized(const std::string &txns, uint64_t epoch) override;
     bool ValidateTransactions(const std::string &txns, uint64_t epoch) override;
     void GetTransactions(std::string *txns, uint64_t epoch) override;
+    void BeginTime() override;
 
 private:
     struct Status{

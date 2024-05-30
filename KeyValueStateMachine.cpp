@@ -64,3 +64,8 @@ std::pair<int, int> KeyValueStateMachine::parse_string(std::string s)
 
     return std::make_pair(k, v);
 }
+
+void KeyValueStateMachine::BeginTime()
+{
+
+}
