@@ -20,10 +20,23 @@ int sync_time(const char *utc_start, gpr_timespec &tspec);
 size_t read_hexstring(uint8_t *bytes, size_t len, const std::string &str);
 
 /*
+ * Overload to write binary output into a string. The entire input string is
+ * attempted to be read as a hexstring. Returns the number of hex bytes that
+ * were able to be parsed from the input.
+ */
+size_t read_hexstring(std::string &bytes, const std::string &str);
+
+/*
  * Writes len lowercase hex bytes corresponding to the elements of bytes
  * contiguously to str. str is resized to have length len and overwritten.
  */
 void write_hexstring(std::string &str, const uint8_t *bytes, size_t len);
+
+/*
+ * Overload to read binary input from a string. The entire input string is
+ * read and interpreted as a byte sequence.
+ */
+void write_hexstring(std::string &str, const std::string &bytes);
 
 /*
  * Reads a file containing lines of the form

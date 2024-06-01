@@ -1,5 +1,7 @@
 #pragma once
 
+#include <mutex>
+
 #include "streamlet.pb.h"
 
 // Interface for StreamletNodes to talk to applications
@@ -13,7 +15,7 @@ public:
     virtual void BeginTime() = 0;
 };
 
-// 256 bit key for P-256/secp256r1
+// 256 bit key for ED25519
 using Key = std::array<uint8_t, 32>;
 
 /*

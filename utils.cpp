@@ -144,6 +144,25 @@ size_t read_hexstring(uint8_t *bytes, size_t len, const std::string &str) {
     return pos;
 }
 
+size_t read_hexstring(std::string &bytes, const std::string &str) {
+    char b[3] = { '\0', '\0', '\0' };
+    size_t pos = 0;
+
+    bytes.clear();
+    while ((2 * pos + 1) < str.length()) {
+        b[0] = str[2 * pos];
+        b[1] = str[2 * pos + 1];
+        if (std::isxdigit(b[0]) && std::isxdigit(b[1])) {
+            bytes.push_back(static_cast<char>(strtol(b, nullptr, 16)));
+            pos++;
+        } else {
+            break;
+        }
+    }
+
+    return pos;
+}
+
 inline char nibble_to_hex(uint8_t nibble) {
     static char char_table[16] = {
         '0', '1', '2', '3', '4', '5', '6', '7',
@@ -162,6 +181,16 @@ void write_hexstring(std::string &str, const uint8_t *bytes, size_t len) {
     for (size_t pos = 0; pos < len; pos++) {
         str[2 * pos] = nibble_to_hex((bytes[pos] & 0xf0) >> 4);
         str[2 * pos + 1] = nibble_to_hex(bytes[pos] & 0x0f);
+    }
+}
+
+void write_hexstring(std::string &str, const std::string &bytes) {
+    uint8_t b;
+    str.resize(2 * bytes.length());
+    for (size_t pos = 0; pos < bytes.length(); pos++) {
+        b = bytes[pos];
+        str[2 * pos] = nibble_to_hex((b & 0xf0) >> 4);
+        str[2 * pos + 1] = nibble_to_hex(b & 0x0f);
     }
 }
 

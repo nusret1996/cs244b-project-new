@@ -2,6 +2,8 @@ GRPC_CFLAGS := $(shell pkg-config --cflags grpc++_unsecure)
 GRPC_LIBS := $(shell pkg-config --libs grpc++_unsecure)
 PROTOBUF_CFLAGS := $(shell pkg-config --cflags protobuf)
 PROTOBUF_LIBS := $(shell pkg-config --libs protobuf)
+OPENSSL_CFLAGS := $(shell pkg-config --cflags libcrypto)
+OPENSSL_LIBS := $(shell pkg-config --libs libcrypto)
 
 override CXXFLAGS += -std=c++14 $(GRPC_CFLAGS) $(PROTOBUF_CFLAGS)
 
@@ -15,6 +17,9 @@ strict: streamlet.pb.o streamlet.grpc.pb.o StreamletNodeStrict.o NetworkInterpos
 
 notarization_test: streamlet.pb.o notarization_test.o
 	$(CXX) -o notarization_test $(CXXFLAGS) $(PROTOBUF_LIBS) $^
+
+hash_sign_test: utils.o hash_sign_test.o
+	$(CXX) -o hash_sign_test $(CXXFLAGS) $(OPENSSL_CLFAGS) $(PROTOBUF_LIBS) $(GRPC_LIBS) $(OPENSSL_LIBS) $^
 
 protos: streamlet.pb.o streamlet.grpc.pb.o
 
