@@ -31,6 +31,7 @@ void ThroughputLossStateMachine::TransactionsFinalized(const std::string &txns, 
      * head of the queue, that epoch was dropped.
      */
     while (epoch > proposed_epochs.front()) {
+        lost_epochs.push(proposed_epochs.front());
         proposed_epochs.pop();
         proposed_ts.pop();
         lost++;
@@ -108,6 +109,15 @@ void ThroughputLossStateMachine::print_stats() {
             << committed << " committed, " << (sent - (committed + lost)) << " unaccounted for" << std::endl;
         std::cout << '\t' << (finalizations / total_sec) << " finalizations per second" << std::endl;
         std::cout << '\t' << (notarizations / total_sec) << " notarizations per second" << std::endl;
-        std::cout << '\t' << (committed / commit_time) << " average seconds to commit" << std::endl;
+        std::cout << '\t' << (commit_time / committed) << " average seconds to commit" << std::endl;
+
+        if (!lost_epochs.empty()) {
+            std::cout << '\t' << "Lost:";
+            while (!lost_epochs.empty()) {
+                std::cout << ' ' << lost_epochs.front();
+                lost_epochs.pop();
+            }
+            std::cout << std::endl;
+        }
     }
 }

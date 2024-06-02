@@ -204,7 +204,7 @@ static inline std::string serialize_block(const Block &block) {
     copy(block.phash().cbegin(), block.phash().cend(), buffer.begin() + 16);
 
     // Copy transaction data
-    copy(block.txns().cbegin(), block.txns().cend(), buffer.begin() + 24);
+    copy(block.txns().cbegin(), block.txns().cend(), buffer.begin() + 48);
 
     return buffer;
 }

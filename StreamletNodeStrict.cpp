@@ -409,7 +409,7 @@ grpc::Status StreamletNodeStrict::ProposeBlock(
         cand->m.unlock();
     } else {
         std::cout << "Warning: Received proposal for epoch " << b_epoch
-            << "in epoch " << cur_epoch << ", discarding message" << std::endl;
+            << " in epoch " << cur_epoch << ", discarding message" << std::endl;
         candidates_m.unlock(); // discard message
     }
 

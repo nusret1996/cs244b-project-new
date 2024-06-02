@@ -62,4 +62,7 @@ private:
 
     // Timestamp for proposals, allowing us to track time until notarization
     std::queue<gpr_timespec> proposed_ts;
+
+    // Print lost epochs
+    std::queue<uint64_t> lost_epochs;
 };
