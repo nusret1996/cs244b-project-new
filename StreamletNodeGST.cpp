@@ -180,7 +180,7 @@ StreamletNodeGST::StreamletNodeGST(
     const gpr_timespec &epoch_len,
     ReplicatedStateMachine &client_app)
     : network{peers, id},
-    crypto{peers, priv, peers.at(id).key},
+    crypto{peers, priv, id},
     client{client_app},
     max_chainlen{0},
     genesis_block{0},
@@ -194,8 +194,11 @@ StreamletNodeGST::StreamletNodeGST(
     // Create entry for dependents of genesis block
     successors.emplace(0, &genesis_block);
 
+    // To suppress hash_block arning about phash not being 256 bits in length
+    genesis_block.block.mutable_phash()->resize(32);
+
     // Set the hash of the empty block
-    crypto.hash_block(&genesis_block.block, genesis_block.hash);
+    genesis_block.hash = crypto.hash_block(genesis_block.block);
 
     // Set pointer once genesis block is constructed
     last_finalized = &genesis_block;
@@ -216,7 +219,7 @@ grpc::Status StreamletNodeGST::NotifyVote(
     const std::string& b_hash = vote->hash();
     const uint32_t voter = vote->node();
 
-    if (!crypto.verify_signature(voter, b_hash, vote->signature())) {
+    if (!crypto.verify_vote(voter, vote->signature(), vote)) {
         std::cout << "Warning: Signature verification failed on vote for block " << b_epoch
             << " by node " << voter <<  ", discarding message" << std::endl;
         return grpc::Status::OK; // discard message
@@ -306,9 +309,11 @@ grpc::Status StreamletNodeGST::ProposeBlock(
         return grpc::Status::OK; // discard mesasge
     }
 
-    std::string hash;
-    crypto.hash_block(&proposal->block(), hash);
-    if (!crypto.verify_signature(proposer, hash, proposal->signature())) {
+    std::string hash{
+        crypto.hash_block(proposal->block())
+    };
+
+    if (!crypto.verify_block(proposer, proposal->signature(), proposal->block())) {
         std::cout << "Warning: Signature verification failed for block " << b_epoch
             << " proposed by node " << proposer <<  ", discarding message" << std::endl;
         return grpc::Status::OK; // discard mesasge
@@ -669,7 +674,9 @@ void StreamletNodeGST::broadcast_vote(const Proposal* proposal, const std::strin
     v.set_epoch(proposal->block().epoch());
     v.set_hash(hash);
 
-    crypto.sign_sha256(hash, v.mutable_signature());
+    // sign_vote computes a signature over only the parent, epoch, and hash,
+    // which are set above, so it's ok to sign a partially filled vote
+    v.set_signature(crypto.sign_vote(&v));
 
     network.broadcast(v, &req_queue);
 }
@@ -679,8 +686,9 @@ void StreamletNodeGST::record_proposal(const Proposal *proposal, uint64_t epoch)
     uint32_t votes = 0;
     Candidate *cand = nullptr;
 
-    std::string hash;
-    crypto.hash_block(&proposal->block(), hash);
+    std::string hash{
+        crypto.hash_block(proposal->block())
+    };
 
     candidates_m.lock();
     std::unordered_map<uint64_t, Candidate*>::iterator iter
@@ -781,8 +789,7 @@ void StreamletNodeGST::Run(gpr_timespec epoch_sync) {
                 Proposal p;
 
                 p.set_node(local_id);
-                // todo: add signature when crypto library done
-                // p.set_signature();
+
                 p.mutable_block()->set_parent(max_chainlen);
 
                 successors_m.lock();
@@ -792,6 +799,9 @@ void StreamletNodeGST::Run(gpr_timespec epoch_sync) {
                 p.mutable_block()->set_epoch(cur_epoch);
 
                 client.GetTransactions(p.mutable_block()->mutable_txns(), cur_epoch);
+
+                // This must be run after all fields of the block have been filled out
+                p.set_signature(crypto.sign_block(p.block()));
 
 #ifdef PRINT_TRANSACTIONS
                 std::cout << "Epoch " << cur_epoch << ", leader " << local_id

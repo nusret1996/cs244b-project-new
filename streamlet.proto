@@ -38,7 +38,7 @@ message Vote {
     // Node ID corresponding to some "address:port" in the configuration file
     uint32 node = 1;
 
-    // P-256/secp256r1 signature on propsed block
+    // ED25519 signature on block's hash included below
     bytes signature = 2;
 
     // Epoch number of parent block
@@ -55,7 +55,7 @@ message Proposal {
     // Node ID corresponding to some "address:port" in the configuration file
     uint32 node = 1;
 
-    // P-256/secp256r1 signature on propsed block
+    // ED25519 signature on propsed block
     bytes signature = 2;
 
     // Block being voted on and to be verified by node

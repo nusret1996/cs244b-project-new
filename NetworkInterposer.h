@@ -21,7 +21,7 @@ public:
         grpc::ClientContext context;
         Response resp;
         grpc::Status status;
-         std::unique_ptr< ::grpc::ClientAsyncResponseReader<Response>> rpc_ptr;
+        std::unique_ptr< ::grpc::ClientAsyncResponseReader<Response>> rpc_ptr;
     };
 
     /*
