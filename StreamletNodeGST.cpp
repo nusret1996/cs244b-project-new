@@ -842,17 +842,18 @@ void StreamletNodeGST::Run(gpr_timespec epoch_sync) {
         // Nothing to process if the status is TIMEOUT. Otherwise, tag is a
         // completed async request that must be cleaned up.
         if (status == grpc::CompletionQueue::NextStatus::GOT_EVENT) {
-#ifdef DEBUG_PRINTS
-            print_m.lock();
-            std::cout << "GOT_EVENT epoch " << epoch_counter.load(std::memory_order_relaxed) << std::endl;
-            print_m.unlock();
-#endif
-
             NetworkInterposer::Pending *req = static_cast<NetworkInterposer::Pending*>(tag);
 
             // optionally check status and response (currently an empty struct)
 
-            // Deallocate the Pending structure
+            // Deallocate the Pending structure. As stated in the comment above NetworkInterposer's
+            // broadcast methods, we are not tracking outstanding requests or associated memory
+            // for simplicity. In principle, the completion queue should eventually give us back
+            // a pointer to each of our allocations, including if a request was cancelled. If the server
+            // is intended to run indefinitely, there is no point in tracking the outstanding memory
+            // since we would expect to see these pointers. In reality, we aren't familiar with GRPC's
+            // cancellation behavior or guarantees on the completion queue, and this is a demo that will
+            // be Ctrl-C'd anyway.
             delete req;
         }
 
@@ -900,6 +901,8 @@ int main(const int argc, const char *argv[]) {
         gpr_time_from_millis(1000, GPR_TIMESPAN)
     };
 
+    std::thread input_thread = rsm.SpawnThread();
+
     StreamletNodeGST service{
         id,
         peers,
@@ -922,9 +925,11 @@ int main(const int argc, const char *argv[]) {
 
     std::cout << "Running as node " << id << " at " << peers[id].addr << std::endl;
 
-    std::thread input_thread = rsm->SpawnThread();
     service.Run(sync_start);
 
-    input_thread.join();
+    if (input_thread.joinable()) {
+        input_thread.join();
+    }
+
     return 0;
 }

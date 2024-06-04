@@ -13,6 +13,9 @@ public:
     bool ValidateTransactions(const std::string &txns, uint64_t epoch) override;
     void GetTransactions(std::string *txns, uint64_t epoch) override;
     void BeginTime() override;
+
+    // Returns an empty thread object since this functionality
+    // is not used for this workload
     std::thread SpawnThread() override;
 
 private:

@@ -1,11 +1,12 @@
 #include "NetworkInterposer.h"
 #include "grpcpp/create_channel.h"
 
+#include <stdexcept>
+
 NetworkInterposer::NetworkInterposer(const std::vector<Peer> &peers, uint32_t id) : local_id{id} {
     bool error = false;
 
     for (const Peer &remote : peers) {
-        // std::cout << "setting up stub with remote " << remote.addr << std::endl;
         channel.emplace_back(grpc::CreateChannel(remote.addr, grpc::InsecureChannelCredentials()));
 
         // Check returned channel isn't nullptr
@@ -34,7 +35,7 @@ NetworkInterposer::NetworkInterposer(const std::vector<Peer> &peers, uint32_t id
             channel[i].reset();
         }
 
-        // throw exception to notify caller?
+        throw std::runtime_error{"Could not set up client side stub and channels"};
     }
 }
 
@@ -46,6 +47,11 @@ NetworkInterposer::~NetworkInterposer() {
     }
 }
 
+/*
+ * These two broadcast functions allocate memory which is intended to be deallocated
+ * in the GRPC service implementation. For simplicity, we aren't tracking how many
+ * requests we've made or the associated memory. See the comment in the service Run().
+ */
 void NetworkInterposer::broadcast(const Vote& vote, grpc::CompletionQueue* cq) {
     for (size_t i = 0; i < stub.size(); i++) {
         if (i == local_id) { continue; }
@@ -56,38 +62,22 @@ void NetworkInterposer::broadcast(const Vote& vote, grpc::CompletionQueue* cq) {
         // pending_set.insert(req);
         Pending* pending_ptr = new Pending();
 
-        // stub[i]->AsyncProposeBlock(&req->context, vote, cq);
-        // or
-        // stub[i]->AsyncNotifyVote(&req->context, vote, cq);
         pending_ptr->rpc_ptr = stub[i]->AsyncNotifyVote(&pending_ptr->context, vote, cq);
-        // get a bunch of these back
-        // std::unique_ptr<grpc::ClientAsyncResponseReader<Response>> rpc
-        // call finish to associated with tag
+
         pending_ptr->rpc_ptr->Finish(&pending_ptr->resp, &pending_ptr->status, (void *) pending_ptr);
     }
 }
 
 void NetworkInterposer::broadcast(const Proposal& proposal, grpc::CompletionQueue* cq) {
-    // std::cout << "networkinterposer broadcast proposal" << std::endl;
     for (size_t i = 0; i < stub.size(); i++) {
         if (i == local_id) { continue; }
 
-        // std::cout << "network interporser broadcast i " << i << std::endl;
-        // allocate and record a Pending somehwere, cleaned up when pulled from cq
-        // in the service implementation
         // Pending req
         // pending_set.insert(req);
         Pending* pending_ptr = new Pending();
 
-        // stub[i]->AsyncProposeBlock(&req->context, vote, cq);
-        // or
-        // stub[i]->AsyncNotifyVote(&req->context, vote, cq);
-        // std::unique_ptr< ::grpc::ClientAsyncResponseReader<Response>> rpc = stub[i]->AsyncProposeBlock(&pending_ptr->context, proposal, cq);
-        // std::cout << "calling async propose block" << std::endl;
         pending_ptr->rpc_ptr = stub[i]->AsyncProposeBlock(&pending_ptr->context, proposal, cq);;
-        // get a bunch of these back
-        // std::unique_ptr<grpc::ClientAsyncResponseReader<Response>> rpc
-        // call finish to associated with tag
+
         pending_ptr->rpc_ptr->Finish(&pending_ptr->resp, &pending_ptr->status, (void *) pending_ptr);
     }
 }

@@ -11,6 +11,7 @@
 // which implement the replicated state machine
 class ReplicatedStateMachine {
 public:
+    virtual ~ReplicatedStateMachine() { };
     virtual void TransactionsFinalized(const std::string &txns, uint64_t epoch) = 0;
     virtual void TransactionsNotarized(const std::string &txns, uint64_t epoch) = 0;
     virtual bool ValidateTransactions(const std::string &txns, uint64_t epoch) = 0;

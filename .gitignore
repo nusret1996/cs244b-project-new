@@ -1,3 +1,6 @@
-*.pb.*
 .DS_Store
 **/*.o
+streamlet.pb.h
+streamlet.pb.cc
+streamlet.grpc.pb.h
+streamlet.grpc.pb.cc

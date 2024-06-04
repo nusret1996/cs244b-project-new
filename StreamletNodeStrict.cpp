@@ -827,7 +827,14 @@ void StreamletNodeStrict::Run(gpr_timespec epoch_sync) {
 
             // optionally check status and response (currently an empty struct)
 
-            // Deallocate the Pending structure
+            // Deallocate the Pending structure. As stated in the comment above NetworkInterposer's
+            // broadcast methods, we are not tracking outstanding requests or associated memory
+            // for simplicity. In principle, the completion queue should eventually give us back
+            // a pointer to each of our allocations, including if a request was cancelled. If the server
+            // is intended to run indefinitely, there is no point in tracking the outstanding memory
+            // since we would expect to see these pointers. In reality, we aren't familiar with GRPC's
+            // cancellation behavior or guarantees on the completion queue, and this is a demo that will
+            // be Ctrl-C'd anyway.
             delete req;
         }
 

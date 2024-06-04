@@ -21,7 +21,7 @@ public:
         grpc::ClientContext context;
         Response resp;
         grpc::Status status;
-        std::unique_ptr< ::grpc::ClientAsyncResponseReader<Response>> rpc_ptr;
+        std::unique_ptr<grpc::ClientAsyncResponseReader<Response>> rpc_ptr;
     };
 
     /*
@@ -55,5 +55,5 @@ private:
     const uint32_t local_id;
     std::vector<std::shared_ptr<grpc::Channel>> channel;
     std::vector<std::unique_ptr<Streamlet::Stub>> stub;
-    std::unordered_set <std::unique_ptr<Pending>> pending_set;
+    std::unordered_set<std::unique_ptr<Pending>> pending_set;
 };
