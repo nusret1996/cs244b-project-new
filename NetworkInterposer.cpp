@@ -1,5 +1,6 @@
 #include "NetworkInterposer.h"
 #include "grpcpp/create_channel.h"
+#include "grpc++/grpc++.h"
 
 #include <stdexcept>
 

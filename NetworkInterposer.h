@@ -1,6 +1,7 @@
 #pragma once
 
 #include "streamlet.grpc.pb.h"
+#include "grpc++/grpc++.h"
 
 #include <vector>
 

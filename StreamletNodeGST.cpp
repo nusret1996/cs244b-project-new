@@ -1,4 +1,5 @@
 #include "grpcpp/grpcpp.h"
+#include "grpc++/grpc++.h"
 
 #include "streamlet.grpc.pb.h"
 
@@ -162,9 +163,12 @@ private:
     const uint32_t local_id;
 
     // Number of peers, which is one greater than the max ID
+    // We assume that num_peers is 1 modulo 3
     const uint32_t num_peers;
 
     // Number of votes at which a block is notarized
+    // As we assume num_peers is 1 modulo 3, note_threshold is
+    // 1+2*(num_peers-1)/3
     const uint32_t note_threshold;
 
     // Duration of each epoch
@@ -192,7 +196,7 @@ StreamletNodeGST::StreamletNodeGST(
     local_addr{make_loopback(peers.at(id).addr)},
     local_id{id},
     num_peers{static_cast<uint32_t>(peers.size())},
-    note_threshold{((num_peers * 2) / 3) + (num_peers % 3)},
+    note_threshold{(2*(num_peers - 1) / 3) + 1},
     epoch_duration{epoch_len},
     epoch_counter{0}
 {
