@@ -4,6 +4,7 @@
 
 #include <iostream>
 #include <mutex>
+#include <thread>
 
 #include "structs.h"
 #include "utils.h"
@@ -921,7 +922,9 @@ int main(const int argc, const char *argv[]) {
 
     std::cout << "Running as node " << id << " at " << peers[id].addr << std::endl;
 
+    std::thread input_thread = rsm->SpawnThread();
     service.Run(sync_start);
 
+    input_thread.join();
     return 0;
 }

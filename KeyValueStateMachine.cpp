@@ -1,3 +1,8 @@
+#include "structs.h"
+#include "utils.h"
+#include <queue>
+#include <iostream>
+#include <thread>
 #include "KeyValueStateMachine.h"
 #include <iostream>
 
@@ -65,6 +70,21 @@ std::pair<int, int> KeyValueStateMachine::parse_string(std::string s)
     return std::make_pair(k, v);
 }
 
+void KeyValueStateMachine::InputThread()
+{
+    while (true){
+        std::string line;
+        std::getline(std::cin, line);
+        std::pair<int, int> p = parse_string(line);
+        to_add.push(p);
+    }
+}
+
+std::thread KeyValueStateMachine::SpawnThread()
+{
+    return std::thread (&KeyValueStateMachine::InputThread, this);
+
+}
 void KeyValueStateMachine::BeginTime()
 {
 

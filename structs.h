@@ -5,6 +5,7 @@
 #include <mutex>
 
 #include "streamlet.pb.h"
+#include <thread>
 
 // Interface for StreamletNodes to talk to applications
 // which implement the replicated state machine
@@ -15,6 +16,7 @@ public:
     virtual bool ValidateTransactions(const std::string &txns, uint64_t epoch) = 0;
     virtual void GetTransactions(std::string *txns, uint64_t epoch) = 0;
     virtual void BeginTime() = 0;
+    virtual std::thread SpawnThread() = 0;
 };
 
 // 256 bit key for ED25519
