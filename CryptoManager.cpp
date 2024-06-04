@@ -181,7 +181,7 @@ uint32_t CryptoManager::hash_epoch(uint64_t epoch) {
     char error_message[256];
 
     uint8_t buffer[8];
-    uint32_t hashval = 0;
+    uint64_t hashval = 0;
 
     // For MD5
     uint8_t digest[16];
@@ -232,7 +232,7 @@ uint32_t CryptoManager::hash_epoch(uint64_t epoch) {
         hashval |= digest[i];
     }
 
-    return hashval % static_cast<uint32_t>(peer_key.size());
+    return static_cast<uint32_t>(hashval % peer_key.size());
 #endif
 }
 
