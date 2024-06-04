@@ -93,6 +93,8 @@ std::string CryptoManager::hash_block(const Block &block) {
         return std::string{};
     }
 
+    md_ctx_pool_put(std::move(ctx));
+
     return std::string{digest, digest + digest_len};
 #endif
 }
@@ -172,11 +174,65 @@ bool CryptoManager::verify_vote(uint32_t node, const std::string &sig, const Vot
 }
 
 uint32_t CryptoManager::hash_epoch(uint64_t epoch) {
-#ifdef FAKE_CRYPTO
+#if defined(FAKE_CRYPTO) || defined(ROUND_ROBIN)
     // ok since the number of peers is constrained by a uint32_t
     return static_cast<uint32_t>(epoch % peer_key.size());
 #else
-    return static_cast<uint32_t>(epoch % peer_key.size());
+    char error_message[256];
+
+    uint8_t buffer[8];
+    uint32_t hashval = 0;
+
+    // For MD5
+    uint8_t digest[16];
+    uint32_t digest_len = 16;
+
+    std::unique_ptr<EVP_MD_CTX, void(*)(EVP_MD_CTX*)> ctx{
+        md_ctx_pool_get()
+    };
+
+    // Write epoch as big endian
+    for (unsigned i = 0; i < 8; i++) {
+        buffer[i] = static_cast<uint8_t>(epoch >> (8 * (7 - i)));
+    }
+
+    if (EVP_DigestInit_ex(ctx.get(), md_md5.get(), nullptr) != 1) {
+        ERR_error_string_n(ERR_get_error(), error_message, 256);
+        std::cerr << "EVP_DigestInit_ex " << error_message << std::endl;
+        md_ctx_pool_put(std::move(ctx));
+
+        // Return an invalid node ID so that the message is discarded
+        return static_cast<uint32_t>(peer_key.size());
+    }
+
+    if (EVP_DigestUpdate(ctx.get(), buffer, sizeof(buffer)) != 1) {
+        ERR_error_string_n(ERR_get_error(), error_message, 256);
+        std::cerr << "EVP_DigestUpdate " << error_message << std::endl;
+        md_ctx_pool_put(std::move(ctx));
+
+        // Return an invalid node ID so that the message is discarded
+        return static_cast<uint32_t>(peer_key.size());
+    }
+
+    if (EVP_DigestFinal_ex(ctx.get(), digest, &digest_len) != 1) {
+        ERR_error_string_n(ERR_get_error(), error_message, 256);
+        std::cerr << "EVP_DigestFinal_ex " << error_message << std::endl;
+        md_ctx_pool_put(std::move(ctx));
+
+        // Return an invalid node ID so that the message is discarded
+        return static_cast<uint32_t>(peer_key.size());
+    }
+
+    md_ctx_pool_put(std::move(ctx));
+
+    // Read in bytes as big endian, so earlier addresses
+    // are shifted towards the left
+    for (unsigned i = 0; i < 8; i++) {
+        hashval <<= 8;
+        hashval |= digest[i];
+    }
+
+    return hashval % static_cast<uint32_t>(peer_key.size());
 #endif
 }
 
@@ -237,6 +293,11 @@ static inline std::string serialize_vote(const Vote *vote) {
 
 // Private methods only needed when building with OpenSSL
 #ifndef FAKE_CRYPTO
+static void MD_CTX_cleanup_message(EVP_MD_CTX *ctx) {
+    std::cout << "CLEANUP " << (void*)ctx << std::endl;
+    EVP_MD_CTX_free(ctx);
+}
+
 std::unique_ptr<EVP_MD_CTX, void(*)(EVP_MD_CTX*)> CryptoManager::md_ctx_pool_get() {
     std::unique_ptr<EVP_MD_CTX, void(*)(EVP_MD_CTX*)> t{nullptr, EVP_MD_CTX_free};
     std::unique_lock<std::mutex> p{pool_lock};

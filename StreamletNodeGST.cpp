@@ -171,6 +171,10 @@ private:
 
     // Current epoch number
     std::atomic_uint64_t epoch_counter;
+
+#ifdef DEBUG_PRINTS
+    std::mutex print_m;
+#endif
 };
 
 StreamletNodeGST::StreamletNodeGST(
@@ -285,6 +289,14 @@ grpc::Status StreamletNodeGST::NotifyVote(
             network.broadcast(*vote, &req_queue);
         }
 
+#ifdef DEBUG_PRINTS
+        print_m.lock();
+        std::cout << "VOTE for block " << b_epoch << " from node " << voter
+            << ", current epoch is " << cur_epoch << std::endl;
+        if (votes == 0) std::cout << "\t^ IGNORED" << std::endl;
+        print_m.unlock();
+#endif
+
         // As future work, NotifyVote could also notarize blocks whose proposal has not been seen if a
         // mechanism to catch up by recursively requesting missing proposals and parents is implemented.
     }
@@ -352,20 +364,16 @@ grpc::Status StreamletNodeGST::ProposeBlock(
                 index_known = true;
             }
         }
-
-        // if (iter != successors.end() &&
-        //     ((b_parent != 0 && iter->second.index != 0 && iter->second.index < max_chainlen)
-        //     || (b_parent == 0 && max_chainlen > 0))) {
-        //         outdated_length = true;
-        // }
     }
     successors_m.unlock();
 
-    if (outdated_length) {
-        std::cout << "Proposal for epoch " <<  b_epoch
-            << " does not extend longest chain, discarding message" << std::endl;
-        return grpc::Status::OK; // discard message
-    }
+    // This is not actually the case if an echoed proposal is discarded, so it's not
+    //
+    // if (outdated_length) {
+    //     std::cout << "Proposal for epoch " <<  b_epoch
+    //         << " does not extend longest chain, discarding message" << std::endl;
+    //     return grpc::Status::OK; // discard message
+    // }
 
     // Check that the block is a valid extension according to the application
     // by invoking a callback on the ReplicatedStateMachine.
@@ -443,6 +451,14 @@ grpc::Status StreamletNodeGST::ProposeBlock(
             // but for now just notarize
             notarize_block(proposal->block(), hash, b_epoch, b_parent);
         }
+
+#ifdef DEBUG_PRINTS
+        print_m.lock();
+        std::cout << "PROPOSAL for block " << b_epoch << " (parent " << b_parent
+            <<  ") from node " << proposer << ", current epoch is " << cur_epoch << std::endl;
+        if (votes == 0) std::cout << "\t^ IGNORED" << std::endl;
+        print_m.unlock();
+#endif
 
         // votes is 0 when the message is a duplicate or unanticipated, echo otherwise
         if (!remove && votes > 0) {
@@ -748,6 +764,8 @@ void StreamletNodeGST::record_proposal(const Proposal *proposal, uint64_t epoch)
 }
 
 void StreamletNodeGST::Run(gpr_timespec epoch_sync) {
+    std::cout << "Notarization threshold: " << note_threshold << std::endl;
+
     // Build server and run
     std::string server_address{ local_addr };
 
@@ -803,9 +821,11 @@ void StreamletNodeGST::Run(gpr_timespec epoch_sync) {
                 // This must be run after all fields of the block have been filled out
                 p.set_signature(crypto.sign_block(p.block()));
 
-#ifdef PRINT_TRANSACTIONS
+#ifdef DEBUG_PRINTS
+                print_m.lock();
                 std::cout << "Epoch " << cur_epoch << ", leader " << local_id
                     << ": " << p.block().txns() << std::endl;
+                print_m.unlock();
 #endif
 
                 network.broadcast(p, &req_queue);
@@ -821,6 +841,12 @@ void StreamletNodeGST::Run(gpr_timespec epoch_sync) {
         // Nothing to process if the status is TIMEOUT. Otherwise, tag is a
         // completed async request that must be cleaned up.
         if (status == grpc::CompletionQueue::NextStatus::GOT_EVENT) {
+#ifdef DEBUG_PRINTS
+            print_m.lock();
+            std::cout << "GOT_EVENT epoch " << epoch_counter.load(std::memory_order_relaxed) << std::endl;
+            print_m.unlock();
+#endif
+
             NetworkInterposer::Pending *req = static_cast<NetworkInterposer::Pending*>(tag);
 
             // optionally check status and response (currently an empty struct)

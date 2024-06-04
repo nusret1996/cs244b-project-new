@@ -147,6 +147,10 @@ private:
 
     // Current epoch number
     std::atomic_uint64_t epoch_counter;
+
+#ifdef DEBUG_PRINTS
+    std::mutex print_m;
+#endif
 };
 
 StreamletNodeStrict::StreamletNodeStrict(
@@ -283,6 +287,14 @@ grpc::Status StreamletNodeStrict::NotifyVote(
         // votes is 0 when the message is a duplicate or unanticipated, echo otherwise
         network.broadcast(*vote, &req_queue);
     }
+
+#ifdef DEBUG_PRINTS
+    print_m.lock();
+    std::cout << "VOTE for block " << b_epoch << " from node " << voter
+        << ", current epoch is " << cur_epoch << std::endl;
+    if (votes == 0) std::cout << "\t^ IGNORED" << std::endl;
+    print_m.unlock();
+#endif
 
     // If the block has obtained enough votes for notarization but its epoch has
     // passed by the the time the leader's proposal is seen, then we can consider
@@ -425,6 +437,14 @@ grpc::Status StreamletNodeStrict::ProposeBlock(
     } else if (votes >= note_threshold) {
         notarize_block(proposal->block(), hash, b_epoch, b_parent);
     }
+
+#ifdef DEBUG_PRINTS
+    print_m.lock();
+    std::cout << "PROPOSAL for block " << b_epoch << " (parent " << b_parent
+        <<  ") from node " << proposer << ", current epoch is " << cur_epoch << std::endl;
+    if (votes == 0) std::cout << "\t^ IGNORED" << std::endl;
+    print_m.unlock();
+#endif
 
     // votes is 0 when the message is a duplicate or unanticipated, echo otherwise
     if (!remove && votes > 0) {
@@ -728,6 +748,8 @@ void StreamletNodeStrict::record_proposal(const Proposal *proposal, uint64_t epo
 }
 
 void StreamletNodeStrict::Run(gpr_timespec epoch_sync) {
+    std::cout << "Notarization threshold: " << note_threshold << std::endl;
+
     // Build server and run
     std::string server_address{ local_addr };
 
@@ -783,7 +805,7 @@ void StreamletNodeStrict::Run(gpr_timespec epoch_sync) {
                 // This must be run after all fields of the block have been filled out
                 p.set_signature(crypto.sign_block(p.block()));
 
-#ifdef PRINT_TRANSACTIONS
+#ifdef DEBUG_PRINTS
                 std::cout << "Epoch " << cur_epoch << ", leader " << local_id
                     << ": " << p.block().txns() << std::endl;
 #endif

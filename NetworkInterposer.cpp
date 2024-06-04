@@ -59,11 +59,11 @@ void NetworkInterposer::broadcast(const Vote& vote, grpc::CompletionQueue* cq) {
         // stub[i]->AsyncProposeBlock(&req->context, vote, cq);
         // or
         // stub[i]->AsyncNotifyVote(&req->context, vote, cq);
-        std::unique_ptr< ::grpc::ClientAsyncResponseReader<Response>> rpc = stub[i]->AsyncNotifyVote(&pending_ptr->context, vote, cq);
+        pending_ptr->rpc_ptr = stub[i]->AsyncNotifyVote(&pending_ptr->context, vote, cq);
         // get a bunch of these back
         // std::unique_ptr<grpc::ClientAsyncResponseReader<Response>> rpc
         // call finish to associated with tag
-        rpc->Finish(&pending_ptr->resp, &pending_ptr->status, (void *) pending_ptr);
+        pending_ptr->rpc_ptr->Finish(&pending_ptr->resp, &pending_ptr->status, (void *) pending_ptr);
     }
 }
 

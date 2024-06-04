@@ -1,5 +1,7 @@
 #pragma once
 
+#include <list>
+#include <array>
 #include <mutex>
 
 #include "streamlet.pb.h"
