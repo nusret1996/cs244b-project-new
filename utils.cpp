@@ -87,7 +87,7 @@ int load_config(const char *file, uint32_t id, std::vector<Peer> &peers, Key &pr
             prev = space + 1;
             space = strchr(prev, ' ');
         } while (space && space == prev);
-        
+
         if (!space || space - prev != 64) {
             status = 2;
             break;
@@ -125,6 +125,16 @@ int load_config(const char *file, uint32_t id, std::vector<Peer> &peers, Key &pr
     delete[] line;
 
     return status;
+}
+
+std::string make_loopback(const std::string &local_host) {
+    size_t split = local_host.find(':');
+
+    std::string loopback{local_host};
+    loopback.erase(0, split);
+    loopback.insert(0, "0.0.0.0");
+
+    return loopback;
 }
 
 size_t read_hexstring(uint8_t *bytes, size_t len, const std::string &str) {

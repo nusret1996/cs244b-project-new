@@ -93,7 +93,7 @@ private:
      * blocks that have formed a "floating" part of the chain have their chain indexes updated in this way
      * and this is also how max_chainlen is tracked and updated. This BFS procedure maintains the invariant
      * that a block's chain position is known if and only if its parent's is known.
-     * 
+     *
      * Finalization is also detected during the BFS. If a finalization is detected during BFS, a walk
      * backwards up the chain is made. If last_finalized can be reached, then it is known that the
      * finalized chain is not missing any notarizations, and any branches extending from blocks in the
@@ -189,7 +189,7 @@ StreamletNodeGST::StreamletNodeGST(
     client{client_app},
     max_chainlen{0},
     genesis_block{0},
-    local_addr{peers.at(id).addr},
+    local_addr{make_loopback(peers.at(id).addr)},
     local_id{id},
     num_peers{static_cast<uint32_t>(peers.size())},
     note_threshold{((num_peers * 2) / 3) + (num_peers % 3)},

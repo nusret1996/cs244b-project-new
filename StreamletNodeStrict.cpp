@@ -164,7 +164,7 @@ StreamletNodeStrict::StreamletNodeStrict(
     client{client_app},
     max_chainlen{0},
     genesis_block{0},
-    local_addr{peers.at(id).addr},
+    local_addr{make_loopback(peers.at(id).addr)},
     local_id{id},
     num_peers{static_cast<uint32_t>(peers.size())},
     note_threshold{((num_peers * 2) / 3) + (num_peers % 3)},

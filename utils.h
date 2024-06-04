@@ -46,3 +46,11 @@ void write_hexstring(std::string &str, const std::string &bytes);
  * which the private key should be extracted into priv.
  */
 int load_config(const char *file, uint32_t id, std::vector<Peer> &peers, Key &priv);
+
+/*
+ * When working with multiple hosts, the config file contains external addresses
+ * that cannot be used to bind the server socket on the local machine. This function
+ * will parse local_host, which is in the form external-address:port, and replace
+ * it with 0.0.0.0:port.
+ */
+std::string make_loopback(const std::string &local_host);
