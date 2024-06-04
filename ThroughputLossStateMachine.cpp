@@ -1,14 +1,23 @@
 #include "ThroughputLossStateMachine.h"
 
 ThroughputLossStateMachine::ThroughputLossStateMachine(uint32_t id, uint32_t nodes, gpr_timespec print_interval)
-    : local_id{id}, num_nodes{nodes}, send_value{id}, committed{0}, lost{0}, sent{0},
+    : ReplicatedStateMachine(), local_id{id}, num_nodes{nodes}, send_value{id}, committed{0}, lost{0}, sent{0},
       finalizations{0}, notarizations{0}, commit_time{0},
       uptime{gpr_time_0(GPR_CLOCK_MONOTONIC)},
       next_print{gpr_time_add(uptime, print_interval)},
-      stats_interval{print_interval} {
+      stats_interval{print_interval}  {
 
 }
 
+ThroughputLossStateMachine::~ThroughputLossStateMachine()
+{
+
+}
+std::thread ThroughputLossStateMachine::SpawnThread()
+{
+    return std::thread() ;
+
+}
 void ThroughputLossStateMachine::TransactionsFinalized(const std::string &txns, uint64_t epoch) {
     gpr_timespec ts = gpr_now(GPR_CLOCK_MONOTONIC);
 
@@ -30,7 +39,7 @@ void ThroughputLossStateMachine::TransactionsFinalized(const std::string &txns, 
      * epochs. So, if a finalization is received for an epoch past the
      * head of the queue, that epoch was dropped.
      */
-    while (epoch > proposed_epochs.front()) {
+    while (!proposed_epochs.empty() && epoch > proposed_epochs.front()) {
         lost_epochs.push(proposed_epochs.front());
         proposed_epochs.pop();
         proposed_ts.pop();

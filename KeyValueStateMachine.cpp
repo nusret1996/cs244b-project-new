@@ -7,11 +7,15 @@
 #include <iostream>
 
 //TODO: add protection for stoi/substr and also running out of key/value pairs
-KeyValueStateMachine::KeyValueStateMachine(uint32_t id) {
+KeyValueStateMachine::KeyValueStateMachine(uint32_t id) :
+    ReplicatedStateMachine() {
     for (int i = id; i < 100; i += 2){
         states.insert({i, Status({false, false, false, i + 100})});
         to_add.push({i, i + 100});
     }
+}
+KeyValueStateMachine::~KeyValueStateMachine() {
+    
 }
 
 void KeyValueStateMachine::TransactionsFinalized(const std::string &transaction, uint64_t epoch)
