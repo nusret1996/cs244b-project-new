@@ -51,6 +51,13 @@ public:
     void broadcast(const Vote& vote, grpc::CompletionQueue* cq);
     void broadcast(const Proposal& proposal, grpc::CompletionQueue* cq);
 
+#ifdef BYZANTINE
+    /*
+     * Functionality allowing an aversarial leader to choose where to send a message.
+     */
+    void send_single(uint32_t to, const Proposal& proposal, grpc::CompletionQueue* cq);
+#endif
+
 private:
     const uint32_t local_id;
     std::vector<std::shared_ptr<grpc::Channel>> channel;

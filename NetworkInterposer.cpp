@@ -64,7 +64,7 @@ void NetworkInterposer::broadcast(const Vote& vote, grpc::CompletionQueue* cq) {
 
         pending_ptr->rpc_ptr = stub[i]->AsyncNotifyVote(&pending_ptr->context, vote, cq);
 
-        pending_ptr->rpc_ptr->Finish(&pending_ptr->resp, &pending_ptr->status, (void *) pending_ptr);
+        pending_ptr->rpc_ptr->Finish(&pending_ptr->resp, &pending_ptr->status, pending_ptr);
     }
 }
 
@@ -78,6 +78,16 @@ void NetworkInterposer::broadcast(const Proposal& proposal, grpc::CompletionQueu
 
         pending_ptr->rpc_ptr = stub[i]->AsyncProposeBlock(&pending_ptr->context, proposal, cq);;
 
-        pending_ptr->rpc_ptr->Finish(&pending_ptr->resp, &pending_ptr->status, (void *) pending_ptr);
+        pending_ptr->rpc_ptr->Finish(&pending_ptr->resp, &pending_ptr->status, pending_ptr);
     }
 }
+
+#ifdef BYZANTINE
+void NetworkInterposer::send_single(uint32_t to, const Proposal& proposal, grpc::CompletionQueue* cq) {
+    Pending* pending_ptr = new Pending();
+
+    pending_ptr->rpc_ptr = stub[to]->AsyncProposeBlock(&pending_ptr->context, proposal, cq);;
+
+    pending_ptr->rpc_ptr->Finish(&pending_ptr->resp, &pending_ptr->status, pending_ptr);
+}
+#endif

@@ -71,6 +71,36 @@ bool ThroughputLossStateMachine::ValidateTransactions(const std::string &txns, u
     return true;
 }
 
+#ifdef BYZANTINE
+void ThroughputLossStateMachine::GetTransactions(uint32_t peer, std::string *txns, uint64_t epoch) {
+    gpr_timespec ts = gpr_now(GPR_CLOCK_MONOTONIC);
+    uptime = gpr_time_add(uptime, gpr_time_sub(ts, prev_ts));
+    prev_ts = ts;
+
+    if (peer % 2 == 0) {
+        *txns = "Adversary message A";
+    } else {
+        *txns = "Adversary message B";
+    }
+
+    txns->resize(1024); // 1 KB messages
+
+    // Start timing from first peer
+    if (peer == 0) {
+        proposed_epochs.push(epoch);
+        proposed_ts.push(gpr_now(GPR_CLOCK_MONOTONIC));
+    }
+
+    // Update sent only on last peer
+    if (peer == num_nodes - 1) {
+        sent++;
+    }
+
+    print_stats();
+}
+
+#else
+
 void ThroughputLossStateMachine::GetTransactions(std::string *txns, uint64_t epoch) {
     gpr_timespec ts = gpr_now(GPR_CLOCK_MONOTONIC);
     uptime = gpr_time_add(uptime, gpr_time_sub(ts, prev_ts));
@@ -85,6 +115,7 @@ void ThroughputLossStateMachine::GetTransactions(std::string *txns, uint64_t epo
 
     print_stats();
 }
+#endif
 
 void ThroughputLossStateMachine::BeginTime() {
     prev_ts = gpr_now(GPR_CLOCK_MONOTONIC);

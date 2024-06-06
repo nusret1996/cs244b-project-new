@@ -11,7 +11,13 @@ public:
     void TransactionsFinalized(const std::string &txns, uint64_t epoch) override;
     void TransactionsNotarized(const std::string &txns, uint64_t epoch) override;
     bool ValidateTransactions(const std::string &txns, uint64_t epoch) override;
+
+#ifdef BYZANTINE
+    void GetTransactions(uint32_t peer, std::string *txns, uint64_t epoch) override;
+#else
     void GetTransactions(std::string *txns, uint64_t epoch) override;
+#endif
+
     void BeginTime() override;
 
     // Returns an empty thread object since this functionality
