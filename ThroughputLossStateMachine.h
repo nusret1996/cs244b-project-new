@@ -3,10 +3,17 @@
 #include "grpc/support/time.h"
 #include "structs.h"
 #include <queue>
+#include <fstream>
 
 class ThroughputLossStateMachine : public ReplicatedStateMachine {
 public:
-    ThroughputLossStateMachine(uint32_t id, uint32_t nodes, gpr_timespec print_interval);
+    ThroughputLossStateMachine(
+        uint32_t id,
+        uint32_t nodes,
+        gpr_timespec print_interval,
+        std::ofstream &note_file,
+        std::ofstream &fin_file
+    );
     ~ThroughputLossStateMachine() override;
     void TransactionsFinalized(const std::string &txns, uint64_t epoch) override;
     void TransactionsNotarized(const std::string &txns, uint64_t epoch) override;
@@ -76,4 +83,9 @@ private:
 
     // Print lost epochs
     std::queue<uint64_t> lost_epochs;
+
+    // References to filestreams for recording notarized and finalized blocks
+    // because flushing is controlled in this class.
+    std::ofstream &note_fstream;
+    std::ofstream &fin_fstream;
 };
