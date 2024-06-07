@@ -511,9 +511,9 @@ void StreamletNodeGST::notarize_block(
     double seconds_elapsed = static_cast<double>(t_diff.tv_sec);
     seconds_elapsed += static_cast<double>(t_diff.tv_nsec) / 1e9;
 
-    std::string print_hash{};
-    write_hexstring(print_hash, note_hash);
-    notarizations << "block hash: " << print_hash << " current epoch: " << note_epoch << " time: "
+    std::string print_hash_1{};
+    write_hexstring(print_hash_1, note_hash);
+    notarizations << "block hash: " << print_hash_1 << " current epoch: " << note_epoch << " time: "
         << seconds_elapsed << " chain len: " << max_chainlen + 1 << std::endl;
     // ==== End Nusret's benchmarking code ====
 
@@ -717,10 +717,10 @@ void StreamletNodeGST::notarize_block(
             double seconds_elapsed = static_cast<double>(t_diff.tv_sec);
             seconds_elapsed += static_cast<double>(t_diff.tv_nsec) / 1e9;
 
-            std::string print_hash;
-            write_hexstring(print_hash, prev_finalized->hash);
+            std::string print_hash_2;
+            write_hexstring(print_hash_2, prev_finalized->hash);
 
-            finalizations << "block hash: " << print_hash << " block epoch: " << prev_finalized->block.epoch() << " time: "
+            finalizations << "block hash: " << print_hash_2 << " block epoch: " << prev_finalized->block.epoch() << " time: "
                 << seconds_elapsed << " chain len: " << prev_finalized->index << std::endl;
             // ==== End Nusret's benchmarking code ====
 
@@ -729,9 +729,9 @@ void StreamletNodeGST::notarize_block(
             gpr_timespec ts = gpr_now(GPR_CLOCK_MONOTONIC);
             double timestamp = static_cast<double>(ts.tv_sec);
             timestamp += static_cast<double>(ts.tv_nsec) / 1e9;
-            std::string print_hash;
-            write_hexstring(print_hash, prev_finalized->hash);
-            finalizations << "block hash: " << print_hash << " block epoch: " << prev_finalized->block.epoch() << " time: " 
+            std::string print_hash_3;
+            write_hexstring(print_hash_3, prev_finalized->hash);
+            finalizations << "block hash: " << print_hash_3 << " block epoch: " << prev_finalized->block.epoch() << " time: " 
                 << timestamp << " chain len: " << prev_finalized->index << std::endl;
             finalizations.flush();
             
@@ -881,6 +881,8 @@ void StreamletNodeGST::Run(gpr_timespec epoch_sync, gpr_timespec sync_time) {
             gpr_timespec t_temp = gpr_time_sub(epoch_sync, sync_time);
             double timestamp_t_temp = static_cast<double>(t_temp.tv_sec);
             timestamp_t_temp += static_cast<double>(t_temp.tv_nsec) / 1e9;
+            double timestamp_epoch_duration = static_cast<double>(epoch_duration.tv_sec);
+            timestamp_epoch_duration += static_cast<double>(epoch_duration.tv_nsec) / 1e9;
 
             if (last_notarized_epoch >= cur_epoch && cur_epoch !=  10) {
                 cur_epoch = last_notarized_epoch+1;
