@@ -1,11 +1,18 @@
 #include "ThroughputLossStateMachine.h"
 
-ThroughputLossStateMachine::ThroughputLossStateMachine(uint32_t id, uint32_t nodes, gpr_timespec print_interval)
+ThroughputLossStateMachine::ThroughputLossStateMachine(
+    uint32_t id,
+    uint32_t nodes,
+    gpr_timespec print_interval,
+    std::ofstream &note_file,
+    std::ofstream &fin_file)
     : ReplicatedStateMachine(), local_id{id}, num_nodes{nodes}, send_value{id}, committed{0}, lost{0}, sent{0},
       finalizations{0}, notarizations{0}, commit_time{0},
       uptime{gpr_time_0(GPR_CLOCK_MONOTONIC)},
       next_print{gpr_time_add(uptime, print_interval)},
-      stats_interval{print_interval}  {
+      stats_interval{print_interval},
+      note_fstream{note_file},
+      fin_fstream{fin_file} {
 
 }
 
@@ -71,6 +78,36 @@ bool ThroughputLossStateMachine::ValidateTransactions(const std::string &txns, u
     return true;
 }
 
+#ifdef BYZANTINE
+void ThroughputLossStateMachine::GetTransactions(uint32_t peer, std::string *txns, uint64_t epoch) {
+    gpr_timespec ts = gpr_now(GPR_CLOCK_MONOTONIC);
+    uptime = gpr_time_add(uptime, gpr_time_sub(ts, prev_ts));
+    prev_ts = ts;
+
+    if (peer % 2 == 0) {
+        *txns = "Adversary message A";
+    } else {
+        *txns = "Adversary message B";
+    }
+
+    txns->resize(1024); // 1 KB messages
+
+    // Start timing from first peer
+    if (peer == 0) {
+        proposed_epochs.push(epoch);
+        proposed_ts.push(gpr_now(GPR_CLOCK_MONOTONIC));
+    }
+
+    // Update sent only on last peer
+    if (peer == num_nodes - 1) {
+        sent++;
+    }
+
+    print_stats();
+}
+
+#else
+
 void ThroughputLossStateMachine::GetTransactions(std::string *txns, uint64_t epoch) {
     gpr_timespec ts = gpr_now(GPR_CLOCK_MONOTONIC);
     uptime = gpr_time_add(uptime, gpr_time_sub(ts, prev_ts));
@@ -85,6 +122,7 @@ void ThroughputLossStateMachine::GetTransactions(std::string *txns, uint64_t epo
 
     print_stats();
 }
+#endif
 
 void ThroughputLossStateMachine::BeginTime() {
     prev_ts = gpr_now(GPR_CLOCK_MONOTONIC);
@@ -111,5 +149,8 @@ void ThroughputLossStateMachine::print_stats() {
             }
             std::cout << std::endl;
         }
+
+        note_fstream.flush();
+        fin_fstream.flush();
     }
 }

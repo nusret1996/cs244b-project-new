@@ -15,7 +15,13 @@ public:
     virtual void TransactionsFinalized(const std::string &txns, uint64_t epoch) = 0;
     virtual void TransactionsNotarized(const std::string &txns, uint64_t epoch) = 0;
     virtual bool ValidateTransactions(const std::string &txns, uint64_t epoch) = 0;
+
+#ifdef BYZANTINE
+    virtual void GetTransactions(uint32_t peer, std::string *txns, uint64_t epoch) = 0;
+#else
     virtual void GetTransactions(std::string *txns, uint64_t epoch) = 0;
+#endif
+
     virtual void BeginTime() = 0;
     virtual std::thread SpawnThread() = 0;
 };

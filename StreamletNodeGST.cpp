@@ -6,14 +6,14 @@
 #include <iostream>
 #include <mutex>
 #include <thread>
- #include <fstream>
+#include <fstream>
+#include <sstream>
 
 #include "structs.h"
 #include "utils.h"
 #include "NetworkInterposer.h"
 #include "CryptoManager.h"
 #include "ThroughputLossStateMachine.h"
-#include "KeyValueStateMachine.h"
 
 /*
  * Implements the Streamlet protocol in which votes are allowed to arrive after the epoch in
@@ -43,7 +43,9 @@ public:
         const std::vector<Peer> &peers,
         const Key &priv,
         const gpr_timespec &epoch_len,
-        ReplicatedStateMachine &client_app
+        ReplicatedStateMachine &client_app,
+        std::ofstream &note_file,
+        std::ofstream &fin_file
     );
 
     ~StreamletNodeGST();
@@ -184,10 +186,11 @@ private:
     std::mutex print_m;
 #endif
 
-// Files for recording notarized and finalized blocks    
-std::ofstream notarizations;    
-std::ofstream finalizations;
-
+    // Files for recording notarized and finalized blocks
+    std::ofstream &notarizations;
+    std::ofstream &finalizations;
+    
+    gpr_timespec start_time;
 };
 
 StreamletNodeGST::StreamletNodeGST(
@@ -195,7 +198,9 @@ StreamletNodeGST::StreamletNodeGST(
     const std::vector<Peer> &peers,
     const Key &priv,
     const gpr_timespec &epoch_len,
-    ReplicatedStateMachine &client_app)
+    ReplicatedStateMachine &client_app,
+    std::ofstream &note_file,
+    std::ofstream &fin_file)
     : network{peers, id},
     crypto{peers, priv, id},
     client{client_app},
@@ -204,11 +209,11 @@ StreamletNodeGST::StreamletNodeGST(
     local_addr{make_loopback(peers.at(id).addr)},
     local_id{id},
     num_peers{static_cast<uint32_t>(peers.size())},
-    note_threshold{(2*(num_peers - 1) / 3) + 1},
+    note_threshold{2 * ((num_peers - 1) / 3) + 1}, // given a value of 3f + 1, calculate 2f + 1
     epoch_duration{epoch_len},
     epoch_counter{0},
-    notarizations{"notarizations"},
-    finalizations{"finalizations"}
+    notarizations{note_file},
+    finalizations{fin_file}
 {
     // Create entry for dependents of genesis block
     successors.emplace(0, &genesis_block);
@@ -279,7 +284,11 @@ grpc::Status StreamletNodeGST::NotifyVote(
         } else if (cand->hash == b_hash && cand->voters[voter] != true) {
             cand->voters[voter] = true;
             votes = ++cand->votes;
-        }
+        } 
+        // This shows some unexpected looping echoing behavior that stalls progress
+        /*else if (cand->hash != b_hash) {
+            std::cout << "VOTE for block " << b_epoch << " from node " << voter << " hash mismatch" << std::endl;
+        }*/
         remove = (cand->removed
             && (cand->ref_count.fetch_sub(1, std::memory_order_relaxed) == 1));
         cand->m.unlock();
@@ -382,7 +391,8 @@ grpc::Status StreamletNodeGST::ProposeBlock(
     }
     successors_m.unlock();
 
-    // This is not actually the case if an echoed proposal is discarded, so it's not
+    // This is misleading if an echoed proposal that is stale is discarded, which
+    // is the right behavior, so keep this commented out.
     //
     // if (outdated_length) {
     //     std::cout << "Proposal for epoch " <<  b_epoch
@@ -495,14 +505,18 @@ void StreamletNodeGST::notarize_block(
     uint64_t par_epoch
 ) {
     notification_m.lock();
-    gpr_timespec ts = gpr_now(GPR_CLOCK_MONOTONIC);
-    double timestamp = static_cast<double>(ts.tv_sec);
-    timestamp += static_cast<double>(ts.tv_nsec) / 1e9;
-    std::string print_hash;
+
+    // ==== Begin Nusret's benchmarking code ====
+    gpr_timespec t_diff = gpr_time_sub(gpr_now(GPR_CLOCK_MONOTONIC), start_time);
+    double seconds_elapsed = static_cast<double>(t_diff.tv_sec);
+    seconds_elapsed += static_cast<double>(t_diff.tv_nsec) / 1e9;
+
+    std::string print_hash{};
     write_hexstring(print_hash, note_hash);
-    notarizations << "block hash: " << print_hash << " current epoch: " << note_epoch << " time: " 
-                << timestamp << " chain len: " << max_chainlen + 1 << std::endl;
-    notarizations.flush();
+    notarizations << "block hash: " << print_hash << " current epoch: " << note_epoch << " time: "
+        << seconds_elapsed << " chain len: " << max_chainlen + 1 << std::endl;
+    // ==== End Nusret's benchmarking code ====
+
     client.TransactionsNotarized(note_block.txns(), note_epoch);
     notification_m.unlock();
 
@@ -698,6 +712,18 @@ void StreamletNodeGST::notarize_block(
         do {
             prev_finalized = prev_finalized->links.front();
 
+            // ==== Begin Nusret's benchmarking code ====
+            gpr_timespec t_diff = gpr_time_sub(gpr_now(GPR_CLOCK_MONOTONIC), start_time);
+            double seconds_elapsed = static_cast<double>(t_diff.tv_sec);
+            seconds_elapsed += static_cast<double>(t_diff.tv_nsec) / 1e9;
+
+            std::string print_hash;
+            write_hexstring(print_hash, prev_finalized->hash);
+
+            finalizations << "block hash: " << print_hash << " block epoch: " << prev_finalized->block.epoch() << " time: "
+                << seconds_elapsed << " chain len: " << prev_finalized->index << std::endl;
+            // ==== End Nusret's benchmarking code ====
+
             client.TransactionsFinalized(prev_finalized->block.txns(), prev_finalized->block.epoch());
 
             gpr_timespec ts = gpr_now(GPR_CLOCK_MONOTONIC);
@@ -807,8 +833,8 @@ void StreamletNodeGST::Run(gpr_timespec epoch_sync, gpr_timespec sync_time) {
 
     std::unique_ptr<grpc::Server> server(builder.BuildAndStart());
 
-    double timestamp_epoch_duration = static_cast<double>(epoch_duration.tv_sec);
-    timestamp_epoch_duration += static_cast<double>(epoch_duration.tv_nsec) / 1e9;
+    // Copy of start time for printing time differences
+    start_time = epoch_sync;
 
     // Poll for completed async requests and monitor epoch progress
     grpc::CompletionQueue::NextStatus status;
@@ -873,8 +899,8 @@ void StreamletNodeGST::Run(gpr_timespec epoch_sync, gpr_timespec sync_time) {
                 should_skip = false;
             }
 
+            // Run leader logic when the hash of the epoch matches the local node id
             if (crypto.hash_epoch(cur_epoch) == local_id) {
-                // Run leader logic
                 Proposal p;
 
                 p.set_node(local_id);
@@ -887,17 +913,40 @@ void StreamletNodeGST::Run(gpr_timespec epoch_sync, gpr_timespec sync_time) {
 
                 p.mutable_block()->set_epoch(cur_epoch);
 
+#ifdef BYZANTINE
+                for (uint32_t peer = 0; peer < num_peers; peer++) {
+                    client.GetTransactions(peer, p.mutable_block()->mutable_txns(), cur_epoch);
+
+                    #ifdef DEBUG_PRINTS
+                    print_m.lock();
+                    std::cout << "Epoch " << cur_epoch << ", adversarial leader " << local_id
+                        << " to node " << peer << ": " << p.block().txns() << std::endl;
+                    print_m.unlock();
+                    #endif
+
+                    // This must be run after all fields of the block have been filled out
+                    p.set_signature(crypto.sign_block(p.block()));
+
+                    // Only send if not the local id. This also allows the adversarial client to
+                    // customize its own record.
+                    if (peer != local_id) {
+                        network.send_single(peer, p, &req_queue);
+                    } else {
+                        record_proposal(&p, cur_epoch);
+                    }
+                }
+#else
                 client.GetTransactions(p.mutable_block()->mutable_txns(), cur_epoch);
 
-                // This must be run after all fields of the block have been filled out
-                p.set_signature(crypto.sign_block(p.block()));
-
-#ifdef DEBUG_PRINTS
+                #ifdef DEBUG_PRINTS
                 print_m.lock();
                 std::cout << "Epoch " << cur_epoch << ", leader " << local_id
                     << ": " << p.block().txns() << std::endl;
                 print_m.unlock();
-#endif
+                #endif
+
+                // This must be run after all fields of the block have been filled out
+                p.set_signature(crypto.sign_block(p.block()));
 
                 network.broadcast(p, &req_queue);
 
@@ -906,6 +955,7 @@ void StreamletNodeGST::Run(gpr_timespec epoch_sync, gpr_timespec sync_time) {
                 // with the possiblity of from remote nodes echoing the proposal so that
                 // ProposeBlock is called before or concurrently with record_proposal.
                 record_proposal(&p, cur_epoch);
+#endif
             }
 
         }
@@ -973,10 +1023,28 @@ int main(const int argc, const char *argv[]) {
 
     gpr_time_init();
 
+    // Files for recording notarized and finalized blocks    
+    std::ofstream notarizations;
+    notarizations.exceptions(std::ofstream::failbit);
+    std::ofstream finalizations;
+    finalizations.exceptions(std::ofstream::failbit);
+
+    std::ostringstream fmt;
+    fmt << "notarizations_" << id;
+    notarizations.open(fmt.str());
+
+    fmt.str(std::string{}); // clear
+
+    fmt << "finalizations_" << id;
+    finalizations.open(fmt.str());
+
+    // Set up client application and server
     ThroughputLossStateMachine rsm{
         id,
         static_cast<uint32_t>(peers.size()),
-        gpr_time_from_millis(1000, GPR_TIMESPAN)
+        gpr_time_from_millis(1000, GPR_TIMESPAN),
+        notarizations,
+        finalizations
     };
 
     std::thread input_thread = rsm.SpawnThread();
@@ -986,7 +1054,9 @@ int main(const int argc, const char *argv[]) {
         peers,
         privkey,
         gpr_time_from_millis(epoch, GPR_TIMESPAN),
-        rsm
+        rsm,
+        notarizations,
+        finalizations
     };
 
     // Run this as close to service.Run() as possible

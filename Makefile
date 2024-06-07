@@ -13,16 +13,25 @@ endif
 
 override CXXFLAGS += $(GRPC_CFLAGS) $(PROTOBUF_CFLAGS) $(OPENSSL_CFLAGS)
 
+ifdef ADVERSARY
+override CXXFLAGS += -DBYZANTINE
+GST_OUT := AdversaryGST
+STRICT_OUT = AdversaryStrict
+else
+GST_OUT := StreamletNodeGST
+STRICT_OUT = StreamletNodeStrict
+endif
+
 # If C++14 needs to be specified again, use this instead. Otherwise, use installation defaults.
 # override CXXFLAGS += -std=c++14 $(GRPC_CFLAGS) $(PROTOBUF_CFLAGS) $(OPENSSL_CFLAGS)
 
 .PHONY: protos clean clean_protos
 
-gst: streamlet.pb.o streamlet.grpc.pb.o StreamletNodeGST.o NetworkInterposer.o CryptoManager.o utils.o KeyValueStateMachine.o ThroughputLossStateMachine.o
-	$(CXX) -o StreamletNodeGST $(CXXFLAGS) $^ $(GRPC_LIBS) $(PROTOBUF_LIBS) $(OPENSSL_LIBS)
+gst: streamlet.pb.o streamlet.grpc.pb.o StreamletNodeGST.o NetworkInterposer.o CryptoManager.o utils.o ThroughputLossStateMachine.o
+	$(CXX) -o $(GST_OUT) $(CXXFLAGS) $^ $(GRPC_LIBS) $(PROTOBUF_LIBS) $(OPENSSL_LIBS)
 
-strict: streamlet.pb.o streamlet.grpc.pb.o StreamletNodeStrict.o NetworkInterposer.o CryptoManager.o utils.o KeyValueStateMachine.o ThroughputLossStateMachine.o
-	$(CXX) -o StreamletNodeStrict $(CXXFLAGS) $^ $(GRPC_LIBS) $(PROTOBUF_LIBS) $(OPENSSL_LIBS)
+strict: streamlet.pb.o streamlet.grpc.pb.o StreamletNodeStrict.o NetworkInterposer.o CryptoManager.o utils.o ThroughputLossStateMachine.o
+	$(CXX) -o $(STRICT_OUT) $(CXXFLAGS) $^ $(GRPC_LIBS) $(PROTOBUF_LIBS) $(OPENSSL_LIBS)
 
 notarization_test: streamlet.pb.o notarization_test.o
 	$(CXX) -o notarization_test $(CXXFLAGS) $^ $(PROTOBUF_LIBS)
@@ -49,6 +58,9 @@ streamlet.grpc.pb.o: streamlet.grpc.pb.cc
 
 clean:
 	rm -f *.o StreamletNodeGST StreamletNodeStrict notarization_test hash_sign_test make_peerconfig
+
+clean_obj:
+	rm -f *.o
 
 clean_protos:
 	rm -f streamlet.pb.* streamlet.grpc.pb.*
