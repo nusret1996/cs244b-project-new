@@ -699,6 +699,7 @@ void StreamletNodeGST::notarize_block(
             prev_finalized = prev_finalized->links.front();
 
             client.TransactionsFinalized(prev_finalized->block.txns(), prev_finalized->block.epoch());
+
             gpr_timespec ts = gpr_now(GPR_CLOCK_MONOTONIC);
             double timestamp = static_cast<double>(ts.tv_sec);
             timestamp += static_cast<double>(ts.tv_nsec) / 1e9;
@@ -707,6 +708,7 @@ void StreamletNodeGST::notarize_block(
             finalizations << "block hash: " << print_hash << " block epoch: " << prev_finalized->block.epoch() << " time: " 
                 << timestamp << " chain len: " << prev_finalized->index << std::endl;
             finalizations.flush();
+            
         } while (prev_finalized != new_finalized);
     }
 
@@ -826,13 +828,21 @@ void StreamletNodeGST::Run(gpr_timespec epoch_sync, gpr_timespec sync_time) {
 
 
         successors_m.lock();
+        
         uint64_t last_notarized_epoch = last_chainlen->epoch;
+
+        gpr_timespec ts = gpr_now(GPR_CLOCK_MONOTONIC);
+        double timestamp = static_cast<double>(ts.tv_sec);
+        timestamp += static_cast<double>(ts.tv_nsec) / 1e9;
+        
         successors_m.unlock();
 
-        notarizations << "last_notarized_epoch: " << last_notarized_epoch << std::endl;
+        bool should_skip = false;
 
-        if ((gpr_time_cmp(gpr_time_sub(t_now, epoch_sync), epoch_duration) >= 0) || (last_notarized_epoch > cur_epoch)) {
+        if ((gpr_time_cmp(gpr_time_sub(t_now, epoch_sync), epoch_duration) >= 0) || (last_notarized_epoch >= cur_epoch)) {
             epoch_sync = gpr_time_add(epoch_sync, epoch_duration);
+
+            should_skip = false;
 
             // Get delay after updating epoch_sync
             // gpr_timespec delay = gpr_time_sub(t_now, epoch_sync);
@@ -841,27 +851,26 @@ void StreamletNodeGST::Run(gpr_timespec epoch_sync, gpr_timespec sync_time) {
             // Since the increment specifies relaxed memory order, be careful
             // that no code below this statement changes other data shared among
             // threads that must be sequenced with epoch_counter.
-            
-            //uint64_t cur_epoch = epoch_counter.fetch_add(1, std::memory_order_relaxed);
 
             gpr_timespec t_temp = gpr_time_sub(epoch_sync, sync_time);
             double timestamp_t_temp = static_cast<double>(t_temp.tv_sec);
             timestamp_t_temp += static_cast<double>(t_temp.tv_nsec) / 1e9;
 
-            if (last_notarized_epoch+1 > cur_epoch) {
-                cur_epoch = last_notarized_epoch;
-                notarizations << "new higher block! " << " current epoch " << cur_epoch
-                << " time: " << timestamp_t_temp << " chain len: " << max_chainlen + 1 << std::endl;
-                notarizations.flush();
-            }
-
-            notarizations << "time to update epoch: " << timestamp_t_temp / timestamp_epoch_duration << "cur_epoch" << cur_epoch << std::endl;
-
-            if (cur_epoch < timestamp_t_temp / timestamp_epoch_duration) {
+            if (last_notarized_epoch >= cur_epoch && cur_epoch !=  10) {
+                cur_epoch = last_notarized_epoch+1;
+                // notarizations << "AAA - new higher block: " << " current epoch: " << cur_epoch
+                // << " time: " << timestamp << " chain len: " << max_chainlen + 1 << std::endl;
+                // notarizations.flush();
+                should_skip = true;
+                // if (cur_epoch > 15) {
+                //    should_skip = false;
+                // }
+            } else if (cur_epoch < timestamp_t_temp / timestamp_epoch_duration) {
                 cur_epoch++; // Must be incremented because the atomic op returns the previous value
-                notarizations << "time to update epoch: " << " current epoch " << cur_epoch
-                << " time: " << timestamp_t_temp << " chain len: " << max_chainlen + 1 << std::endl;
-                notarizations.flush();
+                // notarizations << "BBB - time to update epoch: " << " current epoch: " << cur_epoch
+                // << " time: " << timestamp << " chain len: " << max_chainlen + 1 << std::endl;
+                // notarizations.flush();
+                should_skip = false;
             }
 
             if (crypto.hash_epoch(cur_epoch) == local_id) {
@@ -898,6 +907,7 @@ void StreamletNodeGST::Run(gpr_timespec epoch_sync, gpr_timespec sync_time) {
                 // ProposeBlock is called before or concurrently with record_proposal.
                 record_proposal(&p, cur_epoch);
             }
+
         }
 
         // Nothing to process if the status is TIMEOUT. Otherwise, tag is a
@@ -918,7 +928,13 @@ void StreamletNodeGST::Run(gpr_timespec epoch_sync, gpr_timespec sync_time) {
             delete req;
         }
 
-        status = req_queue.AsyncNext(&tag, &ok, epoch_sync);
+        // notarizations << should_skip << "   " << cur_epoch << std::endl;
+        const gpr_timespec nointerval = {0};
+        if (!should_skip) {
+            status = req_queue.AsyncNext(&tag, &ok, epoch_sync);
+        } else {
+            status = req_queue.AsyncNext(&tag, &ok, nointerval);
+        }
     }
 
     server->Shutdown();

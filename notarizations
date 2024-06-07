@@ -1,0 +1,90 @@
+AAA - new higher block:  current epoch: 1 time: 147992 chain len: 1
+block hash: 0aea692dfa166a72614c8052b49f6c1f1e32af5c87020f70e1cb3dcd7d98f6f0 current epoch: 1 time: 147992 chain len: 1
+1   1
+AAA - new higher block:  current epoch: 2 time: 147992 chain len: 2
+block hash: ea18557fe6a774fd37a88e8f8ff70144223b9e6b2b6e6e488237a4df8e4cd54b current epoch: 2 time: 147992 chain len: 2
+1   2
+AAA - new higher block:  current epoch: 3 time: 147992 chain len: 3
+block hash: ab55f0306c7e1db21b7b444a916ead74ada48c51cdd7baaae7775957fc8b1dc2 current epoch: 3 time: 147992 chain len: 3
+1   3
+AAA - new higher block:  current epoch: 4 time: 147992 chain len: 4
+block hash: 4dc908164ef6ab0e865ecff09582eb4b552c330769b4271c3b081bfa96e14210 current epoch: 4 time: 147992 chain len: 4
+1   4
+AAA - new higher block:  current epoch: 5 time: 147992 chain len: 5
+block hash: aa39086d00126e3e1b2d5f08e267f8556644838283cbe76edaf35c9387b38ee6 current epoch: 5 time: 147992 chain len: 5
+1   5
+AAA - new higher block:  current epoch: 6 time: 147992 chain len: 6
+block hash: f4856684e7bca8964c270f7d5df8e191db4f58ba57f7df027a2d6153d487e81f current epoch: 6 time: 147992 chain len: 6
+1   6
+AAA - new higher block:  current epoch: 7 time: 147992 chain len: 7
+block hash: 49197d553dfe3c23ff9a7650a574cd45ba8ac208c509bb8148f876a27f57a356 current epoch: 7 time: 147992 chain len: 7
+1   7
+AAA - new higher block:  current epoch: 8 time: 147992 chain len: 8
+block hash: e509f3dd8063be9b09a1ca19f5322d22ad0cc8aabc895f1e9d3b62a0ed4c534f current epoch: 8 time: 147992 chain len: 8
+1   8
+AAA - new higher block:  current epoch: 9 time: 147992 chain len: 9
+block hash: 18db73a3bad632da7f6d0c3338c2fb8cf3ca183ee20c1d65aa17b57d75fe72e1 current epoch: 9 time: 147992 chain len: 9
+1   9
+AAA - new higher block:  current epoch: 10 time: 147992 chain len: 10
+block hash: f8cf22a4f9f145878902506664392f7fde0010460773d9a79ec9e6c5d7f55a02 current epoch: 10 time: 147992 chain len: 10
+1   10
+BBB - time to update epoch:  current epoch: 11 time: 147992 chain len: 11
+block hash: 1ba4f6b3994664e66c9300427330165bcfad675735136c6edb2177290467500f current epoch: 11 time: 147992 chain len: 11
+0   11
+AAA - new higher block:  current epoch: 12 time: 148047 chain len: 12
+block hash: aa17aab4fa36876b29667962625b184098721ba8ae7fe55476deebdd977a06b3 current epoch: 12 time: 148047 chain len: 12
+1   12
+AAA - new higher block:  current epoch: 13 time: 148047 chain len: 13
+block hash: 2f1b33bd3e5015250f14aea1af6662335c83bd5428635cd770a7e6f1ffa17910 current epoch: 13 time: 148047 chain len: 13
+1   13
+AAA - new higher block:  current epoch: 14 time: 148047 chain len: 14
+block hash: 676225988c339063e8a6f875cf36a6803331244e705110553d4ddf5fdcb09c62 current epoch: 14 time: 148047 chain len: 14
+1   14
+AAA - new higher block:  current epoch: 15 time: 148047 chain len: 15
+block hash: 1681c8048fbca93a61861a1fe69746a97bd036f504ddda2f4e26890e30e5ac20 current epoch: 15 time: 148047 chain len: 15
+1   15
+AAA - new higher block:  current epoch: 16 time: 148047 chain len: 16
+block hash: 959e58255d6e531a66578243f6fadcc1fa9e4c6244c4193c3c0be65a63d9c54e current epoch: 16 time: 148047 chain len: 16
+0   16
+AAA - new higher block:  current epoch: 17 time: 148072 chain len: 17
+block hash: b02a16ed1ac85be2f57a2eb39cd233d6d7d4653428702972366d6c3d101f6f24 current epoch: 17 time: 148072 chain len: 17
+0   17
+AAA - new higher block:  current epoch: 18 time: 148077 chain len: 18
+block hash: 473460ca86158588d958ca8cc656cc19bda8a900cbe014a256ba10918127ee32 current epoch: 18 time: 148077 chain len: 18
+0   18
+AAA - new higher block:  current epoch: 19 time: 148082 chain len: 19
+block hash: b02b4caef1c3edeaef80e91403b482830bd2369a389300c7fa6f8b4f4bf95b8a current epoch: 19 time: 148082 chain len: 19
+0   19
+AAA - new higher block:  current epoch: 20 time: 148087 chain len: 20
+block hash: d2cc9caeaaa4cf3bebcfcc967f70c03fc027e63a37512c774026479b1df180a6 current epoch: 20 time: 148087 chain len: 20
+0   20
+AAA - new higher block:  current epoch: 21 time: 148092 chain len: 21
+block hash: f2d78f8fb5dd51ebccbb8bd6e8ee45edbded6076b11226182898f3579ba88bba current epoch: 21 time: 148092 chain len: 21
+0   21
+AAA - new higher block:  current epoch: 22 time: 148097 chain len: 22
+block hash: 3abbcb90923fd6f70c855640216c8cd4f88a73686822e119c4e6bdaca2318492 current epoch: 22 time: 148097 chain len: 22
+0   22
+AAA - new higher block:  current epoch: 23 time: 148102 chain len: 23
+block hash: d1e8bb35d719d4cf115636f07fe10c2b1d6a5070ba1dacabbe5ed4bc5587f0aa current epoch: 23 time: 148102 chain len: 23
+0   23
+AAA - new higher block:  current epoch: 24 time: 148107 chain len: 24
+block hash: a56468922f4fefb6134a99d4fb873a3b16692a13019e19e0ec0a9a56fb9aa958 current epoch: 24 time: 148107 chain len: 24
+0   24
+AAA - new higher block:  current epoch: 25 time: 148112 chain len: 25
+block hash: 836aa2298c6cc3972fb8422053ff1d8202b52dd82fe569f2f7c3b04ae224c5fb current epoch: 25 time: 148112 chain len: 25
+0   25
+AAA - new higher block:  current epoch: 26 time: 148117 chain len: 26
+block hash: a6b0ce8852f81c3e074b597dd10c531d8c16df47f1d0099be38a9d813a19db24 current epoch: 26 time: 148117 chain len: 26
+0   26
+AAA - new higher block:  current epoch: 27 time: 148122 chain len: 27
+block hash: 704b0cabfc68f525142a82aab7d093537e88390753df12b56e6d91af6f4ec1d3 current epoch: 27 time: 148122 chain len: 27
+0   27
+AAA - new higher block:  current epoch: 28 time: 148127 chain len: 28
+block hash: 67dd03b71edafc90977aaaed5d6f753c3f2c9691f7aa9c53a980f7f8921880dc current epoch: 28 time: 148127 chain len: 28
+0   28
+AAA - new higher block:  current epoch: 29 time: 148132 chain len: 29
+block hash: 6298e3200085984aa004e611bc09a3287ba35a34405302a84542a51f24691aea current epoch: 29 time: 148132 chain len: 29
+0   29
+AAA - new higher block:  current epoch: 30 time: 148137 chain len: 30
+block hash: fe60c5de30d9403ba003898c779f7ea6487e5b1979fc2d311177b40c0d86a6fd current epoch: 30 time: 148137 chain len: 30
+0   30
